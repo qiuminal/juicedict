@@ -6,8 +6,6 @@
 - 中文名：就词典
 - 英文名：JuiceDict
 - 包名：`com.qiuminal.juicedict`
-- 名称可用性：经 GitHub 仓库/用户搜索与 Web 检索，`JuiceDict`、`就词典`、`com.qiuminal.juicedict`
-  均无同名已发布应用或项目，无版权冲突。
 
 ## 许可与致谢
 
@@ -68,12 +66,6 @@ CC-CEDICT 精确命中，chibigenc 因无此词头落到模糊层返回“韭菜
 - **失效**：缓存头记录 wordcount / idxfilesize / synwordcount，与当前 `.ifo` 不一致即视为失效
   自动重建（词典升级或重新导入时生效）。
 
-## 已内置词典
-
-- 仓库与发布版始终只内置 `CC-CEDICT`（2025-11-02 版，525,037 词条，中英对照，HTML 释义），
-  首次启动自动复制到应用私有目录，无需联网。
-- 只发布内置 CC-CEDICT 的版本；不再内置 / 分发汉语大词典（chibigenc）。
-
 ## 版本历史
 
 - v0.0.1（2026-09-02）首个Release版本（此前 1.3.1 ~ 1.4.0 内测改动并入本条）：
@@ -94,13 +86,6 @@ CC-CEDICT 精确命中，chibigenc 因无此词头落到模糊层返回“韭菜
 - 首页左上角☰ 侧边菜单：首页 / 关于；关于页自动检查更新，发现新版本可一键下载安装
 - Material 3（Material Components 1.12）+ 动态取色（Android 12+），edge-to-edge，明暗主题自适应
 - 查词全程离线，导入使用 SAF 文件选择器无需存储权限；INTERNET 权限仅用于「检查更新」访问 GitHub Releases
-
-## 安装
-
-- `JuiceDict-v0.0.1-release.apk`：正式版，内置 CC-CEDICT（约 14 MB）
-
-APK 使用项目内 `keystore/release.keystore` 签名，需要 Android 7.0 (API 24) 及以上。
-（`keystore/` 与 `keystore.properties` 仅作者本地保存，不随仓库分发。）
 
 ## 工程结构
 
@@ -131,25 +116,3 @@ app/src/main/assets/dict/   内置词典（CC-CEDICT）
 ## 构建
 
 环境：JDK 17、Android SDK（compileSdk 35 / build-tools 35 / platform-tools）。
-
-```bash
-# 单元测试（JVM 上对内置 CC-CEDICT 做解析与搜索校验，含 .syn 别名与缓存往返回归）
-./gradlew :app:testDebugUnitTest
-
-# 模糊查询性能基准（chibigenc 仅本机存在时参与，仓库内自动跳过）
-./gradlew :app:testDebugUnitTest --tests "com.qiuminal.juicedict.engine.FuzzyPerfTest"
-
-# 构建签名 Release APK（正式版：仅含 CC-CEDICT）
-./gradlew :app:assembleRelease
-# 产物：app/build/outputs/apk/release/app-release.apk
-
-```
-
-本仓库 `gradle/wrapper/gradle-wrapper.properties` 指定了腾讯镜像以便国内下载依赖；
-如需可改回官方 `services.gradle.org`。
-
-## 后续可扩展方向
-
-- AIDL / 绑定服务：暴露 `lookupSmart(query)`、`getDictionaries()` 等给其他 App 免跳转查词
-- 查询历史、收藏、发音
-- WordNet / XDXF 等更多格式与类型（如 `W` wav、`P` 图片）的专用渲染
