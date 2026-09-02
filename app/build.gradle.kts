@@ -10,6 +10,32 @@ val keystoreProps = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
+/**
+ * Release signing secrets are read from environment variables first
+ * (for CI), then from the git-ignored local keystore.properties.
+ * No default password is hardcoded: if the secrets are missing, release
+ * builds fail fast instead of silently using a fallback.
+ */
+fun signingSecret(propKey: String): String? {
+    val envKey = when (propKey) {
+        "storeFile" -> "JUICEDICT_STORE_FILE"
+        "storePassword" -> "JUICEDICT_STORE_PASSWORD"
+        "keyAlias" -> "JUICEDICT_KEY_ALIAS"
+        "keyPassword" -> "JUICEDICT_KEY_PASSWORD"
+        else -> null
+    }
+    if (envKey != null) {
+        System.getenv(envKey)?.let { return it }
+    }
+    return keystoreProps.getProperty(propKey)
+}
+
+/** True when the invoked task graph needs a release artifact. */
+fun wantsReleaseBuild(): Boolean {
+    val names = gradle.startParameter.taskNames
+    return names.any { it == "assemble" || it == "bundle" || it.contains("Release") }
+}
+
 android {
     namespace = "com.qiuminal.juicedict"
     compileSdk = 35
@@ -23,18 +49,34 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = rootProject.file(keystoreProps.getProperty("storeFile", "keystore/release.keystore"))
-            storePassword = keystoreProps.getProperty("storePassword", "offlinedict")
-            keyAlias = keystoreProps.getProperty("keyAlias", "offlinedict")
-            keyPassword = keystoreProps.getProperty("keyPassword", "offlinedict")
+        val storeFilePath = signingSecret("storeFile")
+        val storePass = signingSecret("storePassword")
+        val keyAliasName = signingSecret("keyAlias")
+        val keyPass = signingSecret("keyPassword")
+        val complete = storeFilePath != null && storePass != null &&
+            keyAliasName != null && keyPass != null
+        if (complete) {
+            create("release") {
+                this.storeFile = rootProject.file(storeFilePath!!)
+                this.storePassword = storePass
+                this.keyAlias = keyAliasName
+                this.keyPassword = keyPass
+            }
+        } else if (wantsReleaseBuild()) {
+            throw GradleException(
+                "Release signing credentials are missing. Provide them via environment " +
+                    "variables (JUICEDICT_STORE_FILE / JUICEDICT_STORE_PASSWORD / " +
+                    "JUICEDICT_KEY_ALIAS / JUICEDICT_KEY_PASSWORD) or a local " +
+                    "keystore.properties (git-ignored). Refusing to build an " +
+                    "unsigned release."
+            )
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
