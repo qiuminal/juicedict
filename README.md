@@ -7,31 +7,6 @@
 - 英文名：JuiceDict
 - 包名：`com.qiuminal.juicedict`
 
-## 许可与致谢
-
-- **应用代码**：就词典（JuiceDict）以 GNU General Public License v3.0（GPL-3.0）发布，
-  全文见根目录 [LICENSE](LICENSE)。
-- **内置词库 CC-CEDICT**：数据遵循 Creative Commons Attribution-ShareAlike 4.0
-  International（CC BY-SA 4.0）。来源：<https://www.mdbg.net/chinese/dictionary?page=cc-cedict>
-  （CC-CEDICT 为 CEDICT 的延续项目，CEDICT 由 Paul Andrew Denisowski 于 1997 年发起）；
-  对数据所做的整理 / 同义词合并 / 格式转换亦以 CC BY-SA 4.0 提供。许可全文与数据致谢见
-  [licenses/](licenses/)，应用内「关于 → 开源许可」亦可查看。
-- **格式与行为参考**（独立 Kotlin 实现，未复制其代码）：sdcv（GPL-2.0-or-later）的查词
-  与模糊匹配行为、KOReader（AGPL-3.0）的词典功能调研、dictzip（.dict.dz）格式规范，
-  详见 [licenses/README.md](licenses/README.md)。
-
-词典解析与搜索行为参考了 KOReader 的词典功能——KOReader 内部通过 `sdcv`（StarDict Console
-Version）实现查词，本项目在 Kotlin 中复刻了 sdcv 的核心行为：
-
-- `.ifo` 元信息解析（wordcount / idxfilesize / sametypesequence / synwordcount / idxoffsetbits 等）
-- `.idx` 索引加载：`词条\0 + 偏移(4B BE) + 长度(4B BE)`，64 位偏移（idxoffsetbits=64）与 `.idx.gz` 也支持
-- `.syn` 同义词别名加载：`别名\0 + 词条序号(4B BE)`，正式词头无命中时自动回退（如简体“三军”命中
-  繁体词头“三軍”），与 sdcv / ColorDict 等 StarDict 软件行为一致
-- `.dict` 数据读取：按 sametypesequence 规则切分段落（小写类型 = 以 \0 结尾的字符串，
-  大写类型 = 前置 4 字节长度，最后一段取剩余字节），`h`(HTML)/`x`(XDXF)/`g`(Pango)/`k`/`w` 等类型
-- `.dict.dz`（dictzip）随机访问：解析 gzip 扩展头 "RA" 分块表，按块独立解压，支持大词典不整包解压
-- 排序比较采用 sdcv 的 `stardict_strcmp`（ASCII 大小写不敏感 + 字节序决胜）
-
 ## 智能查询
 
 不提供模式 Tab，用户无感：**前缀查询优先**（前缀命中天然包含精确命中，且更短的精确词排最前），
@@ -116,3 +91,28 @@ app/src/main/assets/dict/   内置词典（CC-CEDICT）
 ## 构建
 
 环境：JDK 17、Android SDK（compileSdk 35 / build-tools 35 / platform-tools）。
+
+## 许可与致谢
+
+- **应用代码**：就词典（JuiceDict）以 GNU General Public License v3.0（GPL-3.0）发布，
+  全文见根目录 [LICENSE](LICENSE)。
+- **内置词库 CC-CEDICT**：数据遵循 Creative Commons Attribution-ShareAlike 4.0
+  International（CC BY-SA 4.0）。来源：<https://www.mdbg.net/chinese/dictionary?page=cc-cedict>
+  （CC-CEDICT 为 CEDICT 的延续项目，CEDICT 由 Paul Andrew Denisowski 于 1997 年发起）；
+  对数据所做的整理 / 同义词合并 / 格式转换亦以 CC BY-SA 4.0 提供。许可全文与数据致谢见
+  [licenses/](licenses/)，应用内「关于 → 开源许可」亦可查看。
+- **格式与行为参考**（独立 Kotlin 实现，未复制其代码）：sdcv（GPL-2.0-or-later）的查词
+  与模糊匹配行为、KOReader（AGPL-3.0）的词典功能调研、dictzip（.dict.dz）格式规范，
+  详见 [licenses/README.md](licenses/README.md)。
+
+词典解析与搜索行为参考了 KOReader 的词典功能——KOReader 内部通过 `sdcv`（StarDict Console
+Version）实现查词，本项目在 Kotlin 中复刻了 sdcv 的核心行为：
+
+- `.ifo` 元信息解析（wordcount / idxfilesize / sametypesequence / synwordcount / idxoffsetbits 等）
+- `.idx` 索引加载：`词条\0 + 偏移(4B BE) + 长度(4B BE)`，64 位偏移（idxoffsetbits=64）与 `.idx.gz` 也支持
+- `.syn` 同义词别名加载：`别名\0 + 词条序号(4B BE)`，正式词头无命中时自动回退（如简体“三军”命中
+  繁体词头“三軍”），与 sdcv / ColorDict 等 StarDict 软件行为一致
+- `.dict` 数据读取：按 sametypesequence 规则切分段落（小写类型 = 以 \0 结尾的字符串，
+  大写类型 = 前置 4 字节长度，最后一段取剩余字节），`h`(HTML)/`x`(XDXF)/`g`(Pango)/`k`/`w` 等类型
+- `.dict.dz`（dictzip）随机访问：解析 gzip 扩展头 "RA" 分块表，按块独立解压，支持大词典不整包解压
+- 排序比较采用 sdcv 的 `stardict_strcmp`（ASCII 大小写不敏感 + 字节序决胜）
