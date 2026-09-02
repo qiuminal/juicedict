@@ -1,0 +1,20 @@
+CC-CEDICT 数据致谢（Data Attribution Notice）
+=============================================
+
+内置词库：CC-CEDICT（2025-11-02 版）
+  - 格式：StarDict 3.0（.ifo / .idx / .dict），词条数 525,037
+  - 数据来源：https://www.mdbg.net/chinese/dictionary?page=cc-cedict
+  - CC-CEDICT 为 CEDICT 项目的延续；CEDICT 由 Paul Andrew Denisowski 于 1997 年
+    发起，CC-CEDICT 由 MDBG 维护。
+
+许可：本数据文件遵循
+  Creative Commons Attribution-ShareAlike 4.0 International（CC BY-SA 4.0）
+  https://creativecommons.org/licenses/by-sa/4.0/
+完整许可文本见同目录 CC-BY-SA-4.0.txt。
+
+依据许可要求：
+  1. 署名（Attribution）：使用本数据须注明来源 MDBG 的 CC-CEDICT
+     （原作者 Paul Andrew Denisowski）；
+  2. 相同方式共享（ShareAlike）：对数据的整理、同义词合并、格式转换等改动
+     须以 CC BY-SA 4.0 或兼容许可提供；
+  3. 本数据按“原样”提供，不附带任何明示或默示担保。

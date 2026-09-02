@@ -1,0 +1,19 @@
+* text=auto eol=lf
+
+# StarDict dictionary data must stay byte-exact (no line-ending conversion)
+*.dict binary
+*.dict.dz binary
+*.idx binary
+*.idx.gz binary
+*.jidx binary
+*.syn binary
+*.ifo binary
+
+# Keystore and build artifacts
+*.keystore binary
+*.apk binary
+*.zip binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary

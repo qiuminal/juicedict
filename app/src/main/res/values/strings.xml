@@ -1,0 +1,68 @@
+<resources>
+    <string name="app_name">就词典</string>
+    <string name="search_hint">输入单词或汉字查询</string>
+    <string name="menu_manage">词典管理</string>
+    <string name="manager_title">词典管理</string>
+    <string name="import_dict">导入StarDict词典</string>
+    <string name="delete_dict">删除</string>
+    <string name="delete_confirm_title">删除词典</string>
+    <string name="delete_confirm_msg">确定要删除「%1$s」吗？</string>
+    <string name="bundled_badge">内置</string>
+    <string name="imported_badge">已导入</string>
+    <string name="word_count">%1$d 词条</string>
+    <string name="empty_query_hint">没别的，就词典</string>
+    <string name="no_result">没有找到相关结果，请检查输入或换个说法再试</string>
+    <string name="no_dict">尚未安装任何词典，请先在「词典管理」中导入</string>
+    <string name="loading">加载中…</string>
+    <string name="copy">复制</string>
+    <string name="share">分享</string>
+    <string name="copied">已复制到剪贴板</string>
+    <string name="import_chooser_title">选择包含 .ifo/.idx/.dict 文件的词典文件夹</string>
+    <string name="import_ok">导入完成</string>
+    <string name="import_fail">导入失败</string>
+    <string name="enabled">启用</string>
+    <string name="not_loaded">词典尚未加载</string>
+    <string name="share_footer">—— %1$s（就词典）</string>
+
+    <!-- 侧边菜单 -->
+    <string name="menu_open">打开菜单</string>
+    <string name="nav_home">首页</string>
+    <string name="nav_about">关于</string>
+
+    <!-- 关于页 -->
+    <string name="back">返回</string>
+    <string name="about_title">关于</string>
+    <string name="about_version">版本 %1$s</string>
+
+    <!-- 更新流程 -->
+    <string name="update_confirm_title">发现新版本</string>
+    <string name="update_confirm_msg">检测到 GitHub 上发布了新版本，是否立即下载并安装？</string>
+    <string name="update_cancel">取消</string>
+    <string name="update_confirm_ok">立即更新</string>
+    <string name="update_downloading">正在下载更新…</string>
+    <string name="update_failed">更新失败：%1$s</string>
+
+    <string name="update_badge">有新版本</string>
+    <string name="contact_title">联系方式</string>
+    <string name="contact_author_label">作者：</string>
+    <string name="contact_author_value">行之</string>
+    <string name="contact_github_label">GitHub：</string>
+    <string name="contact_github_value">github.com/qiuminal</string>
+    <string name="contact_qq_label">QQ：</string>
+    <string name="contact_qq_value">871334822</string>
+    <string name="changelog_title">更新日志</string>
+    <string name="changelog_content">0.0.1（2026-09-02）\n· 「就词典（JuiceDict）」首个Release版本，没别的，就词典，简洁快速无广告\n· 目前支持导入StarDict词典，支持多词典并行查询；预建索引缓存，冷启动更快！\n· 智能查询：输入即查、自动模糊匹配，不再担心输错\n· 交互：查询结果实时预览，点击展开完整释义详情，支持复制/分享\n· 词典管理：启用/停用/删除词典；经系统文件选择器（SAF）导入第三方 StarDict 词典\n· 关于页，内置更新器，发现新版本显示红色徽标，点击一键下载安装\n· 许可：应用代码 GPL-3.0；内置 CC-CEDICT 词库遵循 CC BY-SA 4.0，详见关于页「开源许可」与项目 LICENSE</string>
+    <!-- 开源许可 -->
+    <string name="license_title">开源许可</string>
+    <string name="license_app_label">应用代码许可</string>
+    <string name="license_app_value">GPL-3.0</string>
+    <string name="license_dict_label">内置词库 CC-CEDICT</string>
+    <string name="license_dict_value">CC BY-SA 4.0</string>
+    <string name="license_notices_label">第三方组件与致谢</string>
+    <string name="license_notices_value">查看</string>
+    <string name="license_app_title">应用代码许可（GNU GPL v3.0）</string>
+    <string name="license_dict_title">CC-CEDICT 词库许可（CC BY-SA 4.0）</string>
+    <string name="license_notices_title">第三方组件与开源致谢</string>
+    <string name="license_read_failed">无法读取许可文本：%1</string>
+    <string name="license_close">关闭</string>
+</resources>

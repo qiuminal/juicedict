@@ -1,0 +1,39 @@
+就词典（JuiceDict）第三方组件与开源致谢
+========================================
+
+【应用代码许可】
+就词典（JuiceDict）的 Android 应用代码以 GNU General Public License
+version 3.0（GPL-3.0）发布。全文见项目根目录 LICENSE（本目录 gpl-3.0.txt
+与之一致）。
+
+【内置词典数据：CC-CEDICT】
+本应用内置词库为 CC-CEDICT（2025-11-02 版，525,037 词条，StarDict 格式），
+数据遵循 Creative Commons Attribution-ShareAlike 4.0 International
+（CC BY-SA 4.0）：
+  - 数据来源：MDBG 网站 CC-CEDICT 下载页
+    https://www.mdbg.net/chinese/dictionary?page=cc-cedict
+  - CC-CEDICT 为 CEDICT 项目的延续；CEDICT 由 Paul Andrew Denisowski
+    于 1997 年发起。
+  - 依据 CC BY-SA 4.0：署名来源；对数据的整理、同义词合并与格式转换
+    同样以 CC BY-SA 4.0 提供。
+许可全文见 cc-by-sa-4.0.txt。
+
+【格式与行为参考（本项目为独立 Kotlin 实现，未复制其代码）】
+  - sdcv（StarDict Console Version），GPL-2.0-or-later
+    https://github.com/Dushistov/sdcv
+    查词门面、编辑距离模糊匹配、词形还原等行为参考自 sdcv。
+  - KOReader，AGPL-3.0
+    https://github.com/koreader/koreader
+    仅调研其词典功能与 StarDict 集成方式，未复制其代码。
+  - dictzip（.dict.dz 分块压缩格式），格式规范参考 dictd 项目
+    （GPL-2.0-or-later）。
+
+【开发依赖】
+以下组件以二进制 / 编译期形式使用，均为宽松许可：
+  - AndroidX（core / appcompat / activity / fragment / recyclerview /
+    constraintlayout / documentfile / lifecycle），Apache-2.0
+  - Material Components for Android，Apache-2.0
+  - Kotlin 标准库与 kotlinx-coroutines，Apache-2.0
+  - JUnit 4（仅单元测试），Eclipse Public License 2.0
+
+完整许可文本见项目仓库根目录 LICENSE 与 licenses/ 目录。
