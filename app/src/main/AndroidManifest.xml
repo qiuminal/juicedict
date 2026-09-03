@@ -1,8 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 仅“检查更新”时访问 GitHub Releases，查词全程离线 -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 应用内更新：拉起系统安装器需此权限（Android 8+ 必需，与虎助手最新版一致） -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- 显式剥离短信/彩信权限族：应用不需要收发短信，避免系统权限页出现高危条目 -->
+    <uses-permission android:name="android.permission.SEND_SMS" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECEIVE_SMS" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_SMS" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECEIVE_MMS" tools:node="remove" />
+    <uses-permission android:name="android.permission.BROADCAST_SMS" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_CELL_BROADCASTS" tools:node="remove" />
 
     <!-- 朗读（TTS）需要枚举系统已安装的语音引擎（Android 11+ 包可见性） -->
     <queries>
