@@ -33,6 +33,7 @@ version 3.0（GPL-3.0）发布。全文见项目根目录 LICENSE（本目录 gp
   - AndroidX（core / appcompat / activity / fragment / recyclerview /
     constraintlayout / documentfile / lifecycle），Apache-2.0
   - Material Components for Android，Apache-2.0
+  - Material Icons（speaker 朗读图标等矢量资源），Apache-2.0
   - Kotlin 标准库与 kotlinx-coroutines，Apache-2.0
   - JUnit 4（仅单元测试），Eclipse Public License 2.0
 

@@ -159,6 +159,52 @@ class StarDictEngineTest {
         sd.close()
     }
 
+
+    @Test
+    fun missingSpaceSmartLookup() {
+        val sd = openDict()
+        // 少打两个空格：assyeahright -> ass yeah right
+        val hits = sd.lookupSmart("assyeahright", 60)
+        assertTrue(hits.any { it.word.equals("ass yeah right", ignoreCase = true) })
+        sd.close()
+    }
+
+    @Test
+    fun missingSpacePartialPrefixFallback() {
+        val sd = openDict()
+        // 输入到一半漏掉空格：assyeah -> ass yeah right（前缀与模糊层皆空，去空格前缀兜底命中）
+        val hits = sd.lookupSmart("assyeah", 60)
+        assertTrue(hits.any { it.word.equals("ass yeah right", ignoreCase = true) })
+        sd.close()
+    }
+
+    @Test
+    fun missingSpaceWithTypoFallback() {
+        val sd = openDict()
+        // 缺空格 + 拼错：assyeahrigt -> ass yeah right（原始词头距离 3 超出模糊上限，
+        // 去空格后距离 1，由兜底层的去空格模糊命中）
+        val hits = sd.lookupSpaceFree("assyeahrigt", 60)
+        assertTrue(hits.any { it.word.equals("ass yeah right", ignoreCase = true) })
+        sd.close()
+    }
+
+    @Test
+    fun spaceFreeSkipsPureChineseMisses() {
+        val sd = openDict()
+        // 纯中文无结果查询不走去空格扫描，仍返回空（生僻扩展字用例）
+        assertTrue(sd.lookupSmart("\uD882\uDD21", 60).isEmpty())
+        sd.close()
+    }
+
+    @Test
+    fun spacedChineseQueryFindsWord() {
+        val sd = openDict()
+        // 输入里逐字带空格（如从文本复制/输入法误加）：此 话 怎 讲 -> 此话怎讲
+        val hits = sd.lookupSmart("此 话 怎 讲", 60)
+        assertTrue("spaced Chinese should find 此话怎讲, got " + hits.take(5).map { it.word },
+            hits.any { it.word == "此话怎讲" })
+        sd.close()
+    }
     private companion object {
         fun findDictDir(): File {
             System.getProperty("test.dict.dir")?.let { return File(it) }

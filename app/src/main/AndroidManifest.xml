@@ -4,6 +4,13 @@
     <!-- 仅“检查更新”时访问 GitHub Releases，查词全程离线 -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- 朗读（TTS）需要枚举系统已安装的语音引擎（Android 11+ 包可见性） -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
         android:name=".App"
         android:allowBackup="true"
@@ -13,13 +20,22 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JuiceDict">
 
+        <!-- 主查询页：singleTask 使外部分享（ACTION_SEND）直达现有实例 -->
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- 阅读软件等经系统分享面板分享文本，拉起就词典查询 -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/html" />
             </intent-filter>
         </activity>
 

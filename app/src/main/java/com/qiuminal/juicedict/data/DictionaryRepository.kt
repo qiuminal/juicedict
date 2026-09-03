@@ -26,20 +26,62 @@ class DictionaryRepository(private val context: Context) {
 
     val rootDir: File get() = dictRoot
 
-    /** Copy the bundled dictionary assets into app storage on first run. */
+    /**
+     * Install/refresh bundled dictionary assets.
+     *
+     * 每个内置词库目录放一个 `<base>.version` 标记（内容为版本号）。首次安装
+     * 或版本号与上次不同时整目录重建，避免手机里残留旧版本内置词库（例如早
+     * 期 APK 拷入、升级后因“文件已存在”永不更新的情况），保证查询行为与当前
+     * APK 打包的词库一致。版本号相同的安装只做“缺文件补齐”。
+     */
     fun ensureBundledDict() {
         dictRoot.mkdirs()
-        val assetNames = context.assets.list(BUNDLED_ASSET_DIR) ?: emptyArray()
-        for (name in assetNames) {
+        val meta = loadMeta()
+        val bundleVersions = meta.optJSONObject(BUNDLE_VERSION_KEY) ?: JSONObject()
+        var metaDirty = false
+
+        // 按词库 base 归组 assets 文件名（.ifo/.idx/.idx.gz/.dict/.dict.dz/.syn/.version）
+        val byBase = HashMap<String, ArrayList<String>>()
+        for (name in context.assets.list(BUNDLED_ASSET_DIR).orEmpty()) {
             val base = baseNameOf(name) ?: continue
+            byBase.getOrPut(base) { ArrayList() }.add(name)
+        }
+
+        for ((base, files) in byBase) {
+            val versionName = files.firstOrNull { it.endsWith(BUNDLE_VERSION_SUFFIX) }
+            val expectedVersion: String = if (versionName != null) {
+                runCatching {
+                    context.assets.open("$BUNDLED_ASSET_DIR/$versionName").use {
+                        it.readBytes().toString(Charsets.UTF_8).trim()
+                    }
+                }.getOrNull().orEmpty()
+            } else {
+                ""
+            }
             val dir = File(dictRoot, base)
+            val installedVersion = bundleVersions.optString(base, "")
+            if (expectedVersion.isNotEmpty() && expectedVersion != installedVersion) {
+                // 版本变化：整目录重建并刷新元数据
+                synchronized(mutex) { loaded.remove(base)?.let { runCatching { it.close() } } }
+                dir.deleteRecursively()
+                bundleVersions.put(base, expectedVersion)
+                metaDirty = true
+            }
             dir.mkdirs()
-            val target = File(dir, name)
-            if (!target.exists() || target.length() == 0L) {
-                context.assets.open("$BUNDLED_ASSET_DIR/$name").use { input ->
-                    FileOutputStream(target).use { output -> input.copyTo(output) }
+            for (name in files) {
+                if (name.endsWith(BUNDLE_VERSION_SUFFIX)) continue // 版本标记不拷入词库目录
+                val target = File(dir, name)
+                if (!target.exists() || target.length() == 0L) {
+                    context.assets.open("$BUNDLED_ASSET_DIR/$name").use { input ->
+                        FileOutputStream(target).use { output -> input.copyTo(output) }
+                    }
+                    metaDirty = true
                 }
             }
+        }
+        if (metaDirty) {
+            meta.put(BUNDLE_VERSION_KEY, bundleVersions)
+            saveMeta(meta)
         }
         cleanupLegacyDirs()
     }
@@ -58,6 +100,12 @@ class DictionaryRepository(private val context: Context) {
     /** Scan installed dictionaries and merge persisted preferences. */
     fun listDictionaries(): List<DictionaryInfo> {
         val meta = loadMeta()
+        // 内置标识以实际打包的 assets 为准：用户自行导入的同名词库（如 chibigenc）
+        // 不应再被误标为“内置”。
+        val bundledNames: Set<String> = runCatching {
+            context.assets.list(BUNDLED_ASSET_DIR)
+                ?.mapNotNull { baseNameOf(it) }?.toSet().orEmpty()
+        }.getOrDefault(emptySet())
         val out = ArrayList<DictionaryInfo>()
         val dirs = dictRoot.listFiles { f -> f.isDirectory } ?: emptyArray()
         for (dir in dirs) {
@@ -85,7 +133,7 @@ class DictionaryRepository(private val context: Context) {
                     date = ifo.date ?: "",
                     version = ifo.version ?: "",
                     dictFileName = dictFile?.name ?: "",
-                    bundled = dir.name in BUNDLED_BASES,
+                    bundled = dir.name in bundledNames,
                     enabled = entry?.optBoolean("enabled", true) ?: true,
                 )
             )
@@ -265,8 +313,8 @@ class DictionaryRepository(private val context: Context) {
 
     private companion object {
         const val BUNDLED_ASSET_DIR = "dict"
-        // 内置词库：CC-CEDICT 所有构建都有；chibigenc（汉语大词典）仅内测构建打包。
-        val BUNDLED_BASES = setOf("CC-CEDICT-20251102-stardict-mergesyns", "chibigenc")
+        const val BUNDLE_VERSION_KEY = "bundle_versions"
+        const val BUNDLE_VERSION_SUFFIX = ".version"
 
         fun baseNameOf(fileName: String): String? {
             // 双扩展名（.dict.dz / .idx.gz）整体视为一个扩展名剥离，

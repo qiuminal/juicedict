@@ -11,11 +11,15 @@
     <string name="imported_badge">已导入</string>
     <string name="word_count">%1$d 词条</string>
     <string name="empty_query_hint">没别的，就词典</string>
-    <string name="no_result">没有找到相关结果，请检查输入或换个说法再试</string>
+    <string name="no_result">未找到「%1$s」，请检查输入是否准确</string>
     <string name="no_dict">尚未安装任何词典，请先在「词典管理」中导入</string>
     <string name="loading">加载中…</string>
     <string name="copy">复制</string>
+    <string name="copy_all">全部复制</string>
     <string name="share">分享</string>
+    <string name="reverse_lookup">反查</string>
+    <string name="speak_title">朗读词条</string>
+    <string name="speak_failed">暂无发音</string>
     <string name="copied">已复制到剪贴板</string>
     <string name="import_chooser_title">选择包含 .ifo/.idx/.dict 文件的词典文件夹</string>
     <string name="import_ok">导入完成</string>
@@ -51,7 +55,7 @@
     <string name="contact_qq_label">QQ：</string>
     <string name="contact_qq_value">871334822</string>
     <string name="changelog_title">更新日志</string>
-    <string name="changelog_content">0.0.1（2026-09-02）\n· 「就词典（JuiceDict）」首个Release版本，没别的，就词典，简洁快速无广告\n· 目前支持导入StarDict词典，支持多词典并行查询；预建索引缓存，冷启动更快！\n· 智能查询：输入即查、自动模糊匹配，不再担心输错\n· 交互：查询结果实时预览，点击展开完整释义详情，支持复制/分享\n· 词典管理：启用/停用/删除词典；经系统文件选择器（SAF）导入第三方 StarDict 词典\n· 关于页，内置更新器，发现新版本显示红色徽标，点击一键下载安装\n· 许可：应用代码 GPL-3.0；内置 CC-CEDICT 词库遵循 CC BY-SA 4.0，详见关于页「开源许可」与项目 LICENSE</string>
+    <string name="changelog_content">0.0.2（2026-09-03）\n· 互见词跳转：支持部分词典正文中的蓝色互见词点按优先在本词典内跳转\n· 回删即查：搜索框回删时立即按剩余文字无缝发起新查询\n· 长按反查：支持中英文长按选词，拖动光标扩选，并提供「复制 / 反查」\n· 分享查词：阅读软件等可经系统分享面板把文本分享到「就词典」自动查询\n· 词条朗读：词条右侧新增小喇叭，支持大部分机型点击小喇叭调用系统 TextToSpeech 朗读中英文单词\n· 查询优化：少打空格的词组也能命中（todo → to do），仅在标准查询无结果时无感触发\n· 修复：CJK扩展区生僻字不再被误判为相似字；查无此词给出明确提示；点按详情页空白可取消文字选中\n· 细节：底部按钮明确为「全部复制」，与长按局部复制区分；开源致谢补充 Material Icons（Apache-2.0）\n\n0.0.1（2026-09-02）\n· 「就词典（JuiceDict）」首个Release版本，没别的，就词典，简洁快速无广告\n· 目前支持导入StarDict词典，支持多词典并行查询；预建索引缓存，冷启动更快！\n· 智能查询：输入即查、自动模糊匹配，不再担心输错\n· 交互：查询结果实时预览，点击展开完整释义详情，支持复制/分享\n· 词典管理：启用/停用/删除词典；经系统文件选择器（SAF）导入第三方 StarDict 词典\n· 关于页，内置更新器，发现新版本显示红色徽标，点击一键下载安装\n· 许可：应用代码 GPL-3.0；内置 CC-CEDICT 词库遵循 CC BY-SA 4.0，详见关于页「开源许可」与项目 LICENSE</string>
     <!-- 开源许可 -->
     <string name="license_title">开源许可</string>
     <string name="license_app_label">应用代码许可</string>
