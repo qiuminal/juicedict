@@ -1,3 +1,9 @@
 <resources>
     <color name="ic_launcher_background">#3949AB</color>
+
+    <!-- Wi-Fi 传词典（视觉稿配色） -->
+    <color name="transfer_page_bg">#f3f5f7</color>
+    <color name="transfer_text_dim">#9aa0a6</color>
+    <color name="transfer_success">#34a853</color>
+    <color name="transfer_fail">#d93025</color>
 </resources>

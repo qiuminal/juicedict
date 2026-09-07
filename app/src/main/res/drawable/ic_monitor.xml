@@ -1,0 +1,18 @@
+<!-- 电脑显示器插画（视觉稿 code_20260907.html 的 SVG 直转），线稿 #c8c9cd -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="158dp" android:height="121dp"
+    android:viewportWidth="158" android:viewportHeight="121">
+    <path
+        android:pathData="M8,2.5h142a6.5,6.5 0 0 1 6.5,6.5v82a6.5,6.5 0 0 1 -6.5,6.5H8A6.5,6.5 0 0 1 1.5,91V9A6.5,6.5 0 0 1 8,2.5Z"
+        android:strokeColor="#c8c9cd" android:strokeWidth="2" android:fillColor="#00000000"/>
+    <path android:pathData="M65,99L65,112"
+        android:strokeColor="#c8c9cd" android:strokeWidth="2" android:strokeLineCap="round"/>
+    <path android:pathData="M93,99L93,112"
+        android:strokeColor="#c8c9cd" android:strokeWidth="2" android:strokeLineCap="round"/>
+    <path android:pathData="M65,112L61.5,117.5"
+        android:strokeColor="#c8c9cd" android:strokeWidth="2" android:strokeLineCap="round"/>
+    <path android:pathData="M93,112L96.5,117.5"
+        android:strokeColor="#c8c9cd" android:strokeWidth="2" android:strokeLineCap="round"/>
+    <path android:pathData="M47.5,119L110.5,119"
+        android:strokeColor="#c8c9cd" android:strokeWidth="2.5" android:strokeLineCap="round"/>
+</vector>

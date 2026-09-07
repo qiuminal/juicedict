@@ -9,7 +9,7 @@
 
 ## 智能查询
 
-用户无需选择精确或模糊匹配，即可获得最佳查询体验：**前缀查询优先**（前缀命中天然包含精确命中，且更短的精确词排最前），
+不提供模式 Tab，用户无感：**前缀查询优先**（前缀命中天然包含精确命中，且更短的精确词排最前），
 前缀无结果时依次回退到 **`.syn` 同义词别名** 与 **模糊查询**。候选列表不显示“精确 / 相似”标签。
 
 模糊层**中英文统一一套规则**（参考 sdcv 的 `CalEditDistance`，含相邻换位 `COVER_TRANSPOSITION`）：
@@ -41,6 +41,20 @@ CC-CEDICT 精确命中，chibigenc 因无此词头落到模糊层返回“韭菜
 - **失效**：缓存头记录 wordcount / idxfilesize / synwordcount，与当前 `.ifo` 不一致即视为失效
   自动重建（词典升级或重新导入时生效）。
 
+v0.1.0 起索引为**紧凑内存布局**（全部词头连续存放于单个字符缓冲 + 原始类型数组 + 原地归并
+排序，解析与缓存读写均流式），340 万词条的 ecdict 常驻约 190MB，配合 `largeHeap` 可在主流
+机型加载；单部词典损坏/超限只影响该词典查询，不会崩溃。
+
+## 版本历史
+
+- v0.0.1（2026-09-02）首个Release版本（此前 1.3.1 ~ 1.4.0 内测改动并入本条）：
+  内置 CC-CEDICT（2025-11-02 版，525,037 词条）；支持导入 StarDict 词典、多词典并行查询与
+  `.jidx` 预建索引缓存（冷启动更快）；智能查询（输入即查、自动模糊匹配）；查询结果实时
+  预览、点击展开完整释义详情、支持复制/分享；词典管理（启用/停用/删除，SAF 导入第三方
+  StarDict 词典）；首页左上角侧边菜单（首页/关于）与关于页内置更新器（发现新版本显示红色
+  徽标，点击一键下载安装）；书本 + 八等分橙子图标与空态广告语「没别的，就词典」；补齐开源
+  许可（应用代码 GPL-3.0，内置 CC-CEDICT 词库 CC BY-SA 4.0，详见 LICENSE 与 licenses/）。
+
 ## 主要功能
 
 - 智能查询：输入即查（300ms 防抖），前缀优先、自动 fallback 模糊，无模式选择
@@ -48,9 +62,13 @@ CC-CEDICT 精确命中，chibigenc 因无此词头落到模糊层返回“韭菜
   （此时只保留搜索框 + 详情），支持复制 / 分享；点搜索框的 × 清除输入并收起详情，回到初始状态
 - 词典管理：查看已安装词典、启用 / 停用、删除；通过系统文件选择器（SAF）选择文件夹导入
   第三方 StarDict 词典（需同时包含 `.ifo`、`.idx` 或 `.idx.gz`、`.dict` 或 `.dict.dz`，可选 `.syn`）
+- **Wi-Fi 传词典**：词典管理页右上角 Wi-Fi 图标进入「从电脑中导入」，手机上启动内嵌 HTTP
+  服务（前台服务保活），电脑浏览器打开显示的网址即可拖拽上传：支持松散多文件 / 整个文件夹 /
+  多部词典一次拖入；每个文件实时进度，凑齐 `.ifo + .idx + .dict` 自动导入并可立即查词
 - 首页左上角☰ 侧边菜单：首页 / 关于；关于页自动检查更新，发现新版本可一键下载安装
 - Material 3（Material Components 1.12）+ 动态取色（Android 12+），edge-to-edge，明暗主题自适应
-- 查词全程离线，导入使用 SAF 文件选择器无需存储权限；INTERNET 权限仅用于「检查更新」访问 GitHub Releases
+- 查词全程离线，导入使用 SAF 文件选择器无需存储权限；INTERNET 权限仅用于「检查更新」访问
+  GitHub Releases 与 Wi-Fi 传词典（仅监听局域网，会话由用户显式开启/停止）
 
 ## 工程结构
 
@@ -66,12 +84,17 @@ app/src/main/java/com/qiuminal/juicedict/
     StarDict.kt          查询门面：lookupSmart（前缀→syn→模糊）、lookupExact/Prefix/Fuzzy/SynExact
     Morphology.kt        词形还原（参考 sdcv LookupSimilarWord）
     EditDistance.kt      统一 Damerau-Levenshtein（工作区复用，零分配）
-  data/     词典仓库：内置资源复制、SAF 导入、启用状态持久化、多词典并发查询、
-            跨词典排序/模糊过滤（MatchRank / LookupRanking）、后台 prewarm
-  ui/       Material3 界面：MainActivity（侧边菜单 + 搜索 + 原地详情）、词典管理、关于页
+  data/     词典仓库：内置资源复制、SAF 导入与 Wi-Fi 导入（共用原子安装通路）、
+            启用状态持久化、多词典并发查询、跨词典排序/模糊过滤（LookupRanking）、后台 prewarm
+  wifi/     Wi-Fi 传词典：WifiImportEngine（纯 JVM 分组/校验/自动导入）、
+            TransferServer（NanoHTTPD 路由与流式上传）、WifiTransferController（保活与状态）、
+            WifiTransferService（前台服务）
+  ui/       Material3 界面：MainActivity（侧边菜单 + 搜索 + 原地详情）、词典管理、
+            Wi-Fi 传输页（从电脑中导入）、关于页
   App.kt    应用入口：启动时后台复制内置词库并 prewarm 建索引
 AppUpdater.kt  GitHub Releases 更新检查 / 下载安装（参考虎助手）
 app/src/main/assets/dict/   内置词典（CC-CEDICT）
+app/src/main/assets/wifi/import.html  电脑端上传页（单文件，无外部依赖）
 ```
 
 分层设计使 `engine` 不依赖 Android 代码：后续如需为其他 App 提供跨应用查询，只需在

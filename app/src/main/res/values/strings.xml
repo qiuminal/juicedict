@@ -28,6 +28,23 @@
     <string name="not_loaded">词典尚未加载</string>
     <string name="share_footer">—— %1$s（就词典）</string>
 
+    <!-- Wi-Fi 传词典 -->
+    <string name="wifi_menu_title">从电脑导入词典</string>
+    <string name="wifi_transfer_title">从电脑中导入</string>
+    <string name="wifi_transfer_tip">请在「电脑浏览器」中打开网址</string>
+    <string name="wifi_copy_ok">复制成功</string>
+    <string name="wifi_state_starting">正在启动…</string>
+    <string name="wifi_state_stopped">已停止，点击重启</string>
+    <string name="wifi_state_retry">点击重试</string>
+    <string name="wifi_records_title">传输记录</string>
+    <string name="wifi_records_empty">暂无传输记录，电脑端上传词典后会显示在这里</string>
+    <string name="wifi_stop">停止 Wi-Fi 传输服务</string>
+    <string name="wifi_notification_channel">Wi-Fi 传词典</string>
+    <string name="wifi_notification_title">Wi-Fi 传词典运行中</string>
+    <string name="wifi_notification_starting">正在启动传输服务…</string>
+    <string name="wifi_notification_text">在电脑浏览器打开 %1$s 上传词典</string>
+    <string name="wifi_stop_action">停止</string>
+
     <!-- 侧边菜单 -->
     <string name="menu_open">打开菜单</string>
     <string name="nav_home">首页</string>
@@ -55,7 +72,7 @@
     <string name="contact_qq_label">QQ：</string>
     <string name="contact_qq_value">871334822</string>
     <string name="changelog_title">更新日志</string>
-    <string name="changelog_content">0.0.2（2026-09-03）\n· 互见词跳转：支持部分词典正文中的蓝色互见词点按优先在本词典内跳转\n· 回删即查：搜索框回删时立即按剩余文字无缝发起新查询\n· 长按反查：支持中英文长按选词，拖动光标扩选，并提供「复制 / 反查」\n· 分享查词：阅读软件等可经系统分享面板把文本分享到「就词典」自动查询\n· 词条朗读：词条右侧新增小喇叭，支持大部分机型点击小喇叭调用系统 TextToSpeech 朗读中英文单词\n· 查询优化：少打空格的词组也能命中（todo → to do），仅在标准查询无结果时无感触发\n· 修复：CJK扩展区生僻字不再被误判为相似字；查无此词给出明确提示；点按详情页空白可取消文字选中\n· 细节：底部按钮明确为「全部复制」，与长按局部复制区分；开源致谢补充 Material Icons（Apache-2.0）\n\n0.0.1（2026-09-02）\n· 「就词典（JuiceDict）」首个Release版本，没别的，就词典，简洁快速无广告\n· 目前支持导入StarDict词典，支持多词典并行查询；预建索引缓存，冷启动更快！\n· 智能查询：输入即查、自动模糊匹配，不再担心输错\n· 交互：查询结果实时预览，点击展开完整释义详情，支持复制/分享\n· 词典管理：启用/停用/删除词典；经系统文件选择器（SAF）导入第三方 StarDict 词典\n· 关于页，内置更新器，发现新版本显示红色徽标，点击一键下载安装\n· 许可：应用代码 GPL-3.0；内置 CC-CEDICT 词库遵循 CC BY-SA 4.0，详见关于页「开源许可」与项目 LICENSE</string>
+    <string name="changelog_content">0.1.0（2026-09-08）\n· Wi‑Fi 传词典：支持电脑浏览器拖拽词典文件或整个文件夹传输到app\n· 修复：大型词典闪退问题\n\n0.0.2（2026-09-03）\n· 互见词跳转：支持部分词典正文中的蓝色互见词点按优先在本词典内跳转\n· 回删即查：搜索框回删时立即按剩余文字无缝发起新查询\n· 长按反查：支持中英文长按选词，拖动光标扩选，并提供「复制 / 反查」\n· 分享查词：阅读软件等可经系统分享面板把文本分享到「就词典」自动查询\n· 词条朗读：词条右侧新增小喇叭，支持大部分机型点击小喇叭调用系统 TextToSpeech 朗读中英文单词\n· 查询优化：少打空格的词组也能命中（todo → to do），仅在标准查询无结果时无感触发\n· 修复：CJK扩展区生僻字不再被误判为相似字；查无此词给出明确提示；点按详情页空白可取消文字选中\n· 细节：底部按钮明确为「全部复制」，与长按局部复制区分；开源致谢补充 Material Icons（Apache-2.0）\n\n0.0.1（2026-09-02）\n· 「就词典（JuiceDict）」首个Release版本，没别的，就词典，简洁快速无广告\n· 目前支持导入StarDict词典，支持多词典并行查询；预建索引缓存，冷启动更快！\n· 智能查询：输入即查、自动模糊匹配，不再担心输错\n· 交互：查询结果实时预览，点击展开完整释义详情，支持复制/分享\n· 词典管理：启用/停用/删除词典；经系统文件选择器（SAF）导入第三方 StarDict 词典\n· 关于页，内置更新器，发现新版本显示红色徽标，点击一键下载安装\n· 许可：应用代码 GPL-3.0；内置 CC-CEDICT 词库遵循 CC BY-SA 4.0，详见关于页「开源许可」与项目 LICENSE</string>
     <!-- 开源许可 -->
     <string name="license_title">开源许可</string>
     <string name="license_app_label">应用代码许可</string>

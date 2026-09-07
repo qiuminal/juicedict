@@ -44,8 +44,8 @@ android {
         applicationId = "com.qiuminal.juicedict"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.0.2"
+        versionCode = 3
+        versionName = "0.1.0"
     }
 
     signingConfigs {
@@ -108,6 +108,13 @@ dependencies {
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.documentfile)
     implementation(libs.kotlinx.coroutines.android)
+    // Wi-Fi 传词典的内嵌 HTTP 服务器（单 jar 约 110KB，BSD-3，与 GPL-3.0 兼容）
+    implementation(libs.nanohttpd)
 
     testImplementation(libs.junit)
+}
+
+// 百万级词条索引的全量测试（BigEcdictTest）需要较大堆
+tasks.withType<Test>().configureEach {
+    maxHeapSize = "1g"
 }

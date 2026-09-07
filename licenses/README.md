@@ -33,6 +33,7 @@ CC BY-SA 4.0 对内置词库的署名（Attribution）与相同方式共享（Sh
 | AndroidX（core / appcompat / activity / fragment / recyclerview / constraintlayout / documentfile / lifecycle） | Apache-2.0 |
 | Material Components for Android | Apache-2.0 |
 | Kotlin / kotlinx-coroutines | Apache-2.0 |
+| NanoHTTPD 2.3.1（Wi-Fi 传词典内嵌 HTTP 服务器，随 APK 分发） | BSD-3-Clause，全文见 [nanohttpd-BSD-3.txt](nanohttpd-BSD-3.txt) |
 | JUnit 4（仅单元测试） | EPL-2.0 |
 
-完整文本：仓库根目录 [LICENSE](../LICENSE)（GPL-3.0）、[CC-BY-SA-4.0.txt](CC-BY-SA-4.0.txt)。
+完整文本：仓库根目录 [LICENSE](../LICENSE)（GPL-3.0）、[CC-BY-SA-4.0.txt](CC-BY-SA-4.0.txt)、[nanohttpd-BSD-3.txt](nanohttpd-BSD-3.txt)。

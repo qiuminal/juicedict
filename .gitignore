@@ -11,5 +11,6 @@
 .cxx
 local.properties
 keystore.properties
+/build-artifacts
 /app/build
 /internal-dicts

@@ -2,8 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 仅“检查更新”时访问 GitHub Releases，查词全程离线 -->
+    <!-- 仅“检查更新”时访问 GitHub Releases，查词全程离线；Wi-Fi 传词典仅监听局域网 -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Wi-Fi 传词典：前台服务保活与通知 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- 应用内更新：拉起系统安装器需此权限（Android 8+ 必需，与虎助手最新版一致） -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -26,6 +32,7 @@
     <application
         android:name=".App"
         android:allowBackup="true"
+        android:largeHeap="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
@@ -56,10 +63,22 @@
             android:exported="false"
             android:parentActivityName=".ui.MainActivity" />
 
+        <!-- Wi-Fi 传词典：电脑浏览器上传词典 -->
+        <activity
+            android:name=".ui.WiFiTransferActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.DictionaryManagerActivity" />
+
         <activity
             android:name=".ui.AboutActivity"
             android:exported="false"
             android:parentActivityName=".ui.MainActivity" />
+
+        <!-- 页面退出后继续保活；应用任务被划掉时自动停止 -->
+        <service
+            android:name=".wifi.WifiTransferService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

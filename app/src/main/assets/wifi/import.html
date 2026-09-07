@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>就词典 · Wi-Fi 传词典</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#f3f5f7;color:#212833;font-family:-apple-system,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;min-height:100vh;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:12px;padding:18px 28px;background:#fff;border-bottom:1px solid #eceef1}
+  header svg{width:34px;height:34px;flex:none}
+  header h1{font-size:17px;font-weight:600}
+  header p{font-size:12px;color:#61656d;margin-top:2px}
+  .dot{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:#34a853;flex:none}
+  .dot i{width:8px;height:8px;border-radius:50%;background:#34a853;display:inline-block}
+  main{width:min(720px,94vw);margin:22px auto;flex:1}
+  .drop{background:#fff;border:2px dashed #c8c9cd;border-radius:14px;padding:42px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+  .drop.on{border-color:#3949AB;background:#f5f6ff}
+  .drop svg{width:52px;height:52px;margin-bottom:12px}
+  .drop .t1{font-size:17px;color:#212833}
+  .drop .t2{font-size:13px;color:#9aa0a6;margin-top:9px;line-height:1.7}
+  .drop .t2 b{color:#3949AB;font-weight:500;cursor:pointer}
+  h2{font-size:14px;font-weight:600;margin:22px 0 10px;color:#212833}
+  .card{background:#fff;border-radius:12px;overflow:hidden}
+  .row{padding:11px 16px;border-bottom:1px solid #f0f1f4}
+  .row:last-child{border-bottom:none}
+  .r1{display:flex;align-items:baseline;gap:10px}
+  .name{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+  .path{font-size:11px;color:#9aa0a6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none;max-width:38%}
+  .st{font-size:12px;flex:none;min-width:64px;text-align:right;color:#61656d}
+  .st.ok{color:#34a853}.st.bad{color:#d93025}
+  .bar{height:4px;border-radius:2px;background:#edeef2;margin-top:7px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:#3949AB;border-radius:2px;transition:width .12s}
+  .bar.done i{background:#34a853}
+  .drow{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid #f0f1f4;font-size:14px}
+  .drow:last-child{border-bottom:none}
+  .drow .mark{width:20px;height:20px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff}
+  .drow .mark.ok{background:#34a853}.drow .mark.bad{background:#d93025}
+  .drow .dn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .drow .dr{font-size:12px;color:#9aa0a6;flex:none;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hidden{display:none}
+  footer{text-align:center;font-size:11px;color:#b3b8c0;padding:14px 0 20px}
+</style>
+</head>
+<body>
+<header>
+  <svg viewBox="0 0 1024 1024" fill="#3949AB" aria-hidden="true"><path d="M974.456 775.904H660.648v77.04l66.064 61.648V930H297.288v-15.408l66.064-61.648v-77.04H49.544C22.176 775.904 0 755.208 0 729.68V113.328C0 87.792 22.176 67.096 49.544 67.096h924.904c27.368 0 49.544 20.688 49.544 46.232V729.68c.008 25.528-22.168 46.224-49.536 46.224M957.936 128.728H66.064v523.904h891.872V128.728z"/><path d="M737.712 314.624C679.456 265.376 599.888 235 512.096 235s-167.352 30.368-225.592 79.624l-29.864-33.352C323.232 226.6 413.112 193 512.096 193c99 0 188.856 33.6 255.464 88.272l-29.848 33.352zM512.096 298c71.016 0 135.096 25.664 180.68 66.816l-30.232 33.752c-36.976-35.856-90.584-58.544-150.448-58.544-59.864 0-113.464 22.688-150.456 58.544l-30.216-33.752C377.016 323.664 441.072 298 512.096 298m0 105.008c43.168 0 81.272 18.4 104.768 46.568l-26.672 29.792c-17.624-20.808-46.008-34.352-78.096-34.352-32.064 0-60.44 13.544-78.096 34.352l-26.664-29.792c23.472-28.168 61.592-46.568 104.76-46.568m0 104.992c26.792 0 48.488 18.808 48.488 42.016 0 23.2-21.696 41.984-48.488 41.984-26.768 0-48.464-18.784-48.464-41.984 0-23.208 21.696-42.016 48.464-42.016"/></svg>
+  <div>
+    <h1>就词典 · Wi-Fi 传词典</h1>
+    <p>把 StarDict 词典文件（.ifo / .idx / .dict 等）或整个词典文件夹拖到下面</p>
+  </div>
+  <span class="dot"><i></i>已连接</span>
+</header>
+<main>
+  <div id="drop" class="drop">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0l-4 4m4-4l4 4" stroke="#9aa6b8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3a2.5 2.5 0 0 0 2.5 2.5h11A2.5 2.5 0 0 0 20 18v-3" stroke="#9aa6b8" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <div class="t1">将词典文件 / 文件夹拖到这里</div>
+    <div class="t2">支持松散多文件与按文件夹两种方式，可一次拖入多部词典<br>或 <b id="pick">点击选择文件</b>（文件夹请使用拖拽）</div>
+  </div>
+  <input type="file" id="fileInput" multiple hidden>
+  <div id="dictWrap" class="hidden">
+    <h2>词典导入结果</h2>
+    <div class="card" id="dictList"></div>
+  </div>
+  <div id="recWrap" class="hidden">
+    <h2>传输记录</h2>
+    <div class="card" id="recList"></div>
+  </div>
+</main>
+<footer>就词典 JuiceDict · 纯离线词典</footer>
+<script>
+(function(){
+  'use strict';
+  var OK_EXT=/\.(ifo|idx|idx\.gz|dict|dict\.dz|syn)$/i;
+  var MAX=2*1024*1024*1024;
+  var drop=document.getElementById('drop'),input=document.getElementById('fileInput'),
+      pick=document.getElementById('pick'),recList=document.getElementById('recList'),
+      recWrap=document.getElementById('recWrap'),dictList=document.getElementById('dictList'),
+      dictWrap=document.getElementById('dictWrap');
+  var busy=false;
+
+  // ---------- 记录行 ----------
+  function fmt(b){return b>=1048576?(b/1048576).toFixed(1)+' MB':b>=1024?(b/1024).toFixed(1)+' KB':b+' B'}
+  function addRec(name,path,size){
+    recWrap.classList.remove('hidden');
+    var row=document.createElement('div');row.className='row';
+    var r1=document.createElement('div');r1.className='r1';
+    var n=document.createElement('span');n.className='name';n.textContent=name;
+    n.title=(path||name)+'（'+fmt(size)+'）';
+    var p=document.createElement('span');p.className='path';p.textContent=(path&&path!==name)?path:'';
+    var s=document.createElement('span');s.className='st';s.textContent='排队中';
+    var bar=document.createElement('div');bar.className='bar';
+    var f=document.createElement('i');bar.appendChild(f);
+    r1.appendChild(n);if(p.textContent)r1.appendChild(p);r1.appendChild(s);
+    row.appendChild(r1);row.appendChild(bar);recList.appendChild(row);
+    return {s:s,bar:bar,f:f};
+  }
+  function setRec(r,pct,text,bad){
+    if(pct!=null){r.f.style.width=(pct*100).toFixed(1)+'%';if(pct>=1)r.bar.classList.add('done');}
+    r.s.textContent=text;
+    r.s.className='st'+(bad?' bad':(text==='已完成'?' ok':''));
+  }
+  function addDict(d){
+    dictWrap.classList.remove('hidden');
+    var row=document.createElement('div');row.className='drow';
+    var m=document.createElement('span');m.className='mark '+(d.ok?'ok':'bad');m.textContent=d.ok?'✓':'✗';
+    var n=document.createElement('span');n.className='dn';n.textContent=d.bookName||d.name||d.base||'未知词典';
+    var r=document.createElement('span');r.className='dr';
+    r.textContent=d.ok?'已导入，可在手机端查词':(d.reason||'导入失败');
+    row.appendChild(m);row.appendChild(n);row.appendChild(r);dictList.appendChild(row);
+  }
+
+  // ---------- 拖拽收集（递归遍历文件夹，过滤系统垃圾文件） ----------
+  function junk(n){return n==='.DS_Store'||n.indexOf('._')===0}
+  function readAll(reader){
+    return new Promise(function(resolve,reject){
+      var all=[];
+      function read(){
+        reader.readEntries(function(batch){
+          if(batch&&batch.length){all=all.concat([].slice.call(batch));read();}
+          else resolve(all);
+        },reject);
+      }
+      read();
+    });
+  }
+  function fileOf(entry){return new Promise(function(res,rej){entry.file(res,rej)})}
+  function walk(entry,prefix,out){
+    if(entry.isFile){
+      if(junk(entry.name))return Promise.resolve();
+      return fileOf(entry).then(function(f){out.push({path:prefix+entry.name,file:f})});
+    }
+    if(entry.isDirectory){
+      if(entry.name==='__MACOSX')return Promise.resolve();
+      var p=prefix+entry.name+'/';
+      return readAll(entry.createReader()).then(function(children){
+        return children.reduce(function(chain,c){return chain.then(function(){return walk(c,p,out)});},Promise.resolve());
+      });
+    }
+    return Promise.resolve();
+  }
+  function collect(dt){
+    var out=[],entries=[];
+    for(var i=0;i<dt.items.length;i++){
+      var it=dt.items[i];
+      var e=it.webkitGetAsEntry&&it.webkitGetAsEntry();
+      if(e)entries.push(e);
+      else{var f=it.getAsFile&&it.getAsFile();if(f)out.push({path:f.name,file:f});}
+    }
+    return Promise.all(entries.map(function(en){return walk(en,'',out)})).then(function(){return out});
+  }
+  function collectAndAccept(dt){
+    if(busy)return;
+    drop.classList.remove('on');
+    setDropMessage('正在读取文件夹…');
+    collect(dt).then(function(items){
+      if(!items.length){
+        showDropError('没有读取到文件，请把文件夹拖到虚线框内');
+      }else{
+        acceptItems(items);
+      }
+    }).catch(function(){showDropError('读取文件夹失败，请重试或改用逐个文件拖入');})
+      .then(function(){if(!busy)setDropMessage('将词典文件 / 文件夹拖到这里');});
+  }
+  function setDropMessage(text){
+    var t=drop.querySelector('.t1');
+    if(t)t.textContent=text;
+  }
+  function showDropError(text){
+    var r=addRec('文件夹',text,0);setRec(r,null,'失败：'+text,true);
+  }
+
+  // ---------- 上传与队列 ----------
+  function upload(item,rec){
+    return new Promise(function(res){
+      var xhr=new XMLHttpRequest();
+      xhr.open('PUT','/upload?name='+encodeURIComponent(item.path));
+      xhr.setRequestHeader('Content-Type','application/octet-stream');
+      xhr.upload.onprogress=function(e){
+        if(e.lengthComputable)setRec(rec,e.loaded/e.total,'上传中 '+Math.round(e.loaded/e.total*100)+'%');
+      };
+      function fail(msg){setRec(rec,null,msg,true);res()}
+      xhr.onload=function(){
+        if(xhr.status>=200&&xhr.status<300){
+          setRec(rec,1,'已完成');
+          try{var j=JSON.parse(xhr.responseText);if(j&&j.import)addDict(j.import);}catch(_){}
+          res();
+        }else{
+          var reason='HTTP '+xhr.status;
+          try{var j2=JSON.parse(xhr.responseText);if(j2&&j2.reason)reason=j2.reason;}catch(_){}
+          fail('失败：'+reason);
+        }
+      };
+      xhr.onerror=function(){fail('网络中断')};
+      xhr.send(item.file);
+    });
+  }
+  function run(items){
+    busy=true;
+    var idx=0;
+    function next(){
+      if(idx>=items.length)return Promise.resolve();
+      var i=idx++,it=items[i];
+      var rec=addRec(it.file.name,it.path,it.file.size);
+      return upload(it,rec).then(next);
+    }
+    var workers=[];
+    for(var w=0;w<Math.min(3,items.length);w++)workers.push(next());
+    return Promise.all(workers).then(function(){
+      return fetch('/finish',{method:'POST'}).then(function(r){return r.json()});
+    }).then(function(j){
+      (j.imported||[]).forEach(addDict);
+      (j.incomplete||[]).forEach(function(x){addDict({ok:false,bookName:x.name,reason:x.reason})});
+    }).catch(function(){
+      addDict({ok:false,bookName:'未知',reason:'收尾请求失败，可重新拖入'});
+    }).then(function(){busy=false});
+  }
+
+  // ---------- 统一入口 ----------
+  function isDictBody(p){return /\.(dict|dict\.dz)$/i.test(p)}
+  function acceptItems(items){
+    if(busy||!items.length)return;
+    var good=[];
+    items.forEach(function(it){
+      if(!OK_EXT.test(it.file.name)){
+        var r=addRec(it.file.name,it.path,it.file.size);
+        setRec(r,null,'失败：不支持的文件类型',true);
+        return;
+      }
+      if(it.file.size>MAX){
+        var r2=addRec(it.file.name,it.path,it.file.size);
+        setRec(r2,null,'失败：超过 2GB 上限',true);
+        return;
+      }
+      good.push(it);
+    });
+    // .dict/.dict.dz 排到最后上传：一部词典的其余文件先到齐，
+    // 大文件到达时整组立即完整并一次性导入
+    good.sort(function(a,b){return (isDictBody(a.path)?1:0)-(isDictBody(b.path)?1:0)});
+    if(good.length)run(good);
+  }
+
+  // ---------- 事件 ----------
+  ['dragover','dragenter'].forEach(function(ev){
+    document.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();});
+    drop.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();drop.classList.add('on');});
+  });
+  ['dragleave','dragend'].forEach(function(ev){
+    drop.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();drop.classList.remove('on');});
+  });
+  drop.addEventListener('drop',function(e){
+    e.preventDefault();e.stopPropagation();
+    if(e.dataTransfer)collectAndAccept(e.dataTransfer);
+  });
+  document.addEventListener('drop',function(e){e.preventDefault();e.stopPropagation();});
+  drop.addEventListener('click',function(){input.click()});
+  pick.addEventListener('click',function(e){e.stopPropagation();input.click()});
+  input.addEventListener('change',function(){
+    var files=[].slice.call(input.files).map(function(f){return {path:f.webkitRelativePath||f.name,file:f}});
+    acceptItems(files);
+    input.value='';
+  });
+})();
+</script>
+</body>
+</html>

@@ -65,18 +65,21 @@ class LookupEngine(private val repo: DictionaryRepository) {
 
             dicts.map { info ->
                 async {
-                    val sd = repo.open(info) ?: return@async emptyList<LookupItem>()
-                    sd.lookupSmart(q, 60).map { hit ->
-                        LookupItem(
-                            dictId = info.id,
-                            dictName = info.bookName,
-                            word = hit.word,
-                            offset = hit.offset,
-                            size = hit.size,
-                            preview = runCatching { sd.article(hit).preview(200) }.getOrDefault(""),
-                            rank = MatchRank.of(q, hit.word),
-                        )
-                    }
+                    // 单部词典查询异常（损坏数据等）只丢掉该词典的结果，不影响其他词典。
+                    runCatching {
+                        val sd = repo.open(info) ?: return@runCatching emptyList<LookupItem>()
+                        sd.lookupSmart(q, 60).map { hit ->
+                            LookupItem(
+                                dictId = info.id,
+                                dictName = info.bookName,
+                                word = hit.word,
+                                offset = hit.offset,
+                                size = hit.size,
+                                preview = runCatching { sd.article(hit).preview(200) }.getOrDefault(""),
+                                rank = MatchRank.of(q, hit.word),
+                            )
+                        }
+                    }.getOrElse { emptyList() }
                 }
             }.awaitAll().flatten().let { LookupRanking.rankAndFilter(it) }
         }

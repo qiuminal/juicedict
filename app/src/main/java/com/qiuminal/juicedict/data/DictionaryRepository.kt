@@ -2,7 +2,9 @@ package com.qiuminal.juicedict.data
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.documentfile.provider.DocumentFile
+import com.qiuminal.juicedict.engine.Article
 import com.qiuminal.juicedict.engine.DictZipReader
 import com.qiuminal.juicedict.engine.Ifo
 import com.qiuminal.juicedict.engine.PlainDictReader
@@ -11,6 +13,7 @@ import com.qiuminal.juicedict.engine.StarDictIndex
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
 /**
@@ -144,9 +147,24 @@ class DictionaryRepository(private val context: Context) {
 
     fun listEnabled(): List<DictionaryInfo> = listDictionaries().filter { it.enabled }
 
-    /** Load (and cache) the [StarDict] instance for a dictionary. */
+    /**
+     * Load (and cache) the [StarDict] instance for a dictionary.
+     *
+     * v0.1.1 起整个加载过程兜底捕获 Throwable：超大词典可能 OOM、损坏词典可能
+     * 抛任何异常——单部词典失败只让该词典不可查询（返回 null），绝不允许
+     * 异常穿出到调用方协程把整个进程带崩（曾导致导入大词典后查询必闪退）。
+     */
     fun open(info: DictionaryInfo): StarDict? = synchronized(mutex) {
         loaded[info.id]?.let { return it }
+        try {
+            openLocked(info)
+        } catch (t: Throwable) {
+            Log.w("JuiceDict", "open dictionary failed: ${info.id}", t)
+            null
+        }
+    }
+
+    private fun openLocked(info: DictionaryInfo): StarDict? {
         val dir = File(dictRoot, info.baseName)
         val ifo = try {
             Ifo.parse(File(dir, info.baseName + ".ifo").readText())
@@ -156,14 +174,22 @@ class DictionaryRepository(private val context: Context) {
         // 预建索引缓存优先：校验通过则免去 .idx/.syn 重解析与排序，冷启动更快。
         val cacheFile = File(dir, info.baseName + ".jidx")
         val index = StarDictIndex.loadCache(cacheFile, ifo) ?: run {
-            val idxBytes = try {
-                readIdxBytes(File(dir, info.baseName + ".idx"), File(dir, info.baseName + ".idx.gz"))
-            } catch (e: Exception) {
-                return null
+            val idxFile = File(dir, info.baseName + ".idx")
+            val idxGzFile = File(dir, info.baseName + ".idx.gz")
+            val idxStream: InputStream = when {
+                idxFile.exists() -> idxFile.inputStream()
+                idxGzFile.exists() -> GZIPInputStream(idxGzFile.inputStream())
+                else -> return null
             }
-            val synBytes = File(dir, info.baseName + ".syn").takeIf { it.exists() }?.readBytes()
-            val parsed = StarDictIndex.load(ifo, idxBytes, synBytes)
-            // 写缓存失败不影响本次查询（下次启动重新解析即可）。
+            val synStream = File(dir, info.baseName + ".syn").takeIf { it.exists() }?.inputStream()
+            val parsed = idxStream.use { ins ->
+                try {
+                    StarDictIndex.load(ifo, ins, synStream)
+                } finally {
+                    synStream?.close()
+                }
+            }
+            // 写缓存失败不影响本次查询（下次启动重新解析即可）；OOM 同样吞掉。
             runCatching { StarDictIndex.writeCache(parsed, cacheFile, ifo) }
             parsed
         }
@@ -176,7 +202,7 @@ class DictionaryRepository(private val context: Context) {
         }
         val sd = StarDict(info.id, ifo, index, data)
         loaded[info.id] = sd
-        sd
+        return sd
     }
 
     /** 后台预热：加载（并在必要时构建缓存）指定词典，供后续查询直接复用。 */
@@ -184,13 +210,18 @@ class DictionaryRepository(private val context: Context) {
         listDictionaries().firstOrNull { it.id == id }?.let { open(it) }
     }
 
-    /** 后台预热所有启用词典（应用启动 / 导入完成后调用）。 */
+    /** 后台预热所有启用词典（应用启动 / 导入完成后调用）；单部失败不影响其余。 */
     fun prewarmAll() {
-        for (info in listEnabled()) open(info)
+        for (info in listEnabled()) runCatching { open(info) }
     }
 
-    fun article(dictId: String, offset: Long, size: Int) = synchronized(mutex) {
-        loaded[dictId]?.article(StarDict.Hit("", offset, size))
+    fun article(dictId: String, offset: Long, size: Int): Article? = synchronized(mutex) {
+        try {
+            loaded[dictId]?.article(StarDict.Hit("", offset, size))
+        } catch (t: Throwable) {
+            Log.w("JuiceDict", "read article failed: $dictId@$offset", t)
+            null
+        }
     }
 
     fun closeAll() = synchronized(mutex) {
@@ -238,6 +269,11 @@ class DictionaryRepository(private val context: Context) {
                 byBase.getOrPut(base) { HashMap() }[key] = f
             }
         }
+        val copy = { doc: DocumentFile, file: File ->
+            context.contentResolver.openInputStream(doc.uri)?.use { input ->
+                FileOutputStream(file).use { out -> input.copyTo(out) }
+            } ?: throw IllegalStateException("open failed")
+        }
         var ok = 0
         var failed = 0
         val importedIds = ArrayList<String>()
@@ -264,20 +300,14 @@ class DictionaryRepository(private val context: Context) {
                 continue
             }
 
-            val targetDir = File(dictRoot, base)
-            targetDir.mkdirs()
-            val copy = { doc: DocumentFile, file: File ->
-                context.contentResolver.openInputStream(doc.uri)?.use { input ->
-                    FileOutputStream(file).use { out -> input.copyTo(out) }
-                } ?: throw IllegalStateException("open failed")
-            }
-            val okCopy = runCatching {
+            // 与 Wi-Fi 导入共用同一安装通路：先写入临时目录，再原子替换正式目录
+            val status = installStaged(base) { targetDir ->
                 copy(ifoDoc, File(targetDir, base + ".ifo"))
                 copy(idxDoc, File(targetDir, if (map["idx"] != null) base + ".idx" else base + ".idx.gz"))
                 copy(dictDoc, File(targetDir, if (map["dict"] != null) base + ".dict" else base + ".dict.dz"))
                 map["syn"]?.let { copy(it, File(targetDir, base + ".syn")) }
-            }.isSuccess
-            if (okCopy) {
+            }
+            if (status.ok) {
                 ok++
                 importedIds.add(base)
             } else {
@@ -288,12 +318,51 @@ class DictionaryRepository(private val context: Context) {
         return ImportReport(ok, failed, message, importedIds)
     }
 
-    private fun readIdxBytes(idx: File, idxGz: File): ByteArray {
-        if (idxGz.exists()) {
-            GZIPInputStream(idxGz.inputStream()).use { return it.readBytes() }
+    /**
+     * 安装一部词典（Wi-Fi 传输 / 其他本地文件来源共用）：
+     * [files] 的键为目标文件名（<base>.ifo 等），值为暂存区来源文件。
+     * 来源文件采用「复制」而非移动——暂存区保留至 /finish 才清空，这样组内晚到的
+     * 文件（如 .syn）仍能触发一次携带全量文件的重导入，覆盖出完整词典。
+     * 安装过程：复制到 dicts/.incoming-<base>/ 临时目录 → 删除旧目录 → 原子改名。
+     * 覆盖安装（重传同名词典）会一并失效内存中的旧实例与 .jidx 缓存。
+     */
+    fun installFromFiles(base: String, files: Map<String, File>): InstallStatus =
+        installStaged(base) { targetDir ->
+            for ((name, src) in files) {
+                src.copyTo(File(targetDir, name), overwrite = true)
+            }
         }
-        return idx.readBytes()
+
+    /** 临时目录准备好后，经 [copyInto] 填充文件，然后原子替换 dicts/<base>/。 */
+    private fun installStaged(base: String, copyInto: (File) -> Unit): InstallStatus {
+        synchronized(mutex) {
+            // 覆盖安装前先丢弃内存中的旧实例，避免查询继续用旧数据
+            loaded.remove(base)?.let { runCatching { it.close() } }
+        }
+        val incoming = File(dictRoot, ".incoming-$base")
+        incoming.deleteRecursively()
+        if (!incoming.mkdirs()) {
+            return InstallStatus(false, null, "无法创建临时目录")
+        }
+        try {
+            copyInto(incoming)
+        } catch (e: Exception) {
+            incoming.deleteRecursively()
+            return InstallStatus(false, null, "复制词典文件失败：${e.message}")
+        }
+        val target = File(dictRoot, base)
+        target.deleteRecursively()
+        return if (incoming.renameTo(target)) {
+            InstallStatus(true, readBookName(File(target, "$base.ifo"), base), null)
+        } else {
+            incoming.deleteRecursively()
+            InstallStatus(false, null, "词典目录替换失败")
+        }
     }
+
+    private fun readBookName(ifoFile: File, fallback: String): String =
+        runCatching { Ifo.parse(ifoFile.readText()).bookName }
+            .getOrNull()?.ifBlank { fallback } ?: fallback
 
     private fun loadMeta(): JSONObject {
         if (!metaFile.exists()) return JSONObject()
@@ -309,6 +378,13 @@ class DictionaryRepository(private val context: Context) {
         val failed: Int,
         val message: String,
         val importedIds: List<String> = emptyList(),
+    )
+
+    /** installFromFiles / installStaged 的安装结果。 */
+    data class InstallStatus(
+        val ok: Boolean,
+        val bookName: String?,
+        val error: String?,
     )
 
     private companion object {

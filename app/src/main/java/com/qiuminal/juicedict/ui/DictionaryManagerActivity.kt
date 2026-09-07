@@ -1,4 +1,4 @@
-﻿package com.qiuminal.juicedict.ui
+package com.qiuminal.juicedict.ui
 
 import android.app.Activity
 import android.content.Intent
@@ -70,11 +70,26 @@ class DictionaryManagerActivity : AppCompatActivity() {
         }
 
         binding.toolbar.setNavigationOnClickListener { finish() }
+        binding.toolbar.inflateMenu(R.menu.menu_manager)
+        binding.toolbar.setOnMenuItemClickListener { item ->
+            if (item.itemId == R.id.action_wifi_transfer) {
+                startActivity(Intent(this, WiFiTransferActivity::class.java))
+                true
+            } else {
+                false
+            }
+        }
         binding.dictList.layoutManager = LinearLayoutManager(this)
         binding.dictList.adapter = adapter
         binding.importButton.setOnClickListener {
             pickTree.launch(null)
         }
+        refresh()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 从 Wi-Fi 传输页返回时，及时反映电脑端刚导入的词典
         refresh()
     }
 
