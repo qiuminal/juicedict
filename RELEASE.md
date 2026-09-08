@@ -22,7 +22,7 @@
 
 ## GitHub Actions 定时发布
 
-v0.1.1 采用 GitHub Actions 云端构建和发布，不使用本机 APK 作为 GitHub Release 附件。工作流使用 `0 3 * * *`，即北京时间每天 11:00（UTC+8）；同时提供 `workflow_dispatch` 手动补发入口。工作流会在 Release 已存在时安全跳过，避免定时任务重复覆盖同一版本。
+v0.1.2 采用 GitHub Actions 云端构建和发布，不使用本机 APK 作为 GitHub Release 附件。工作流使用 `0 4 * * *`，即北京时间每天 12:00（UTC+8）；同时提供 `workflow_dispatch` 手动补发入口。工作流会在 Release 已存在时安全跳过，避免定时任务重复覆盖同一版本。
 
 GitHub Actions Secrets 应配置：
 
@@ -48,6 +48,6 @@ GitHub Actions Secrets 应配置：
 1. 汇总本版本完整功能、技术实现、修复和验证清单，先更新仓库内 `CHANGELOG-INTERNAL.md`。
 2. 从对内详细版提炼「仅本版本」的对外精简日志，交用户确认，并同步到客户端关于页和 GitHub Release 草稿。
 3. 用户确认后，提交版本号、日志、GitHub Actions 工作流并推送到 `main`。
-4. GitHub Actions 在北京时间 11:00（UTC 03:00）运行：执行单元测试、构建正式 release APK、验证版本号与历史签名证书，然后创建 `v0.1.1` tag 和 GitHub Release，上传 APK。
+4. GitHub Actions 在北京时间 12:00（UTC 04:00）运行：执行单元测试、构建正式 release APK、验证版本号与历史签名证书，然后创建 `v0.1.2` tag 和 GitHub Release，上传 APK。
 5. 发布后校验：`releases/latest` 已指向新 tag；附件 SHA-256 与 GitHub Actions 构建产物一致；APK 签名证书 SHA-256 与历史一致；远端 tag 等于构建提交。
 6. 补丁换源：对已发布 Release 修复时保持版本号与签名不变，仅替换同名附件，并在正文追加简短备注。
