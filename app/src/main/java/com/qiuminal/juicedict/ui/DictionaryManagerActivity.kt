@@ -13,7 +13,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.qiuminal.juicedict.App
 import com.qiuminal.juicedict.R
 import com.qiuminal.juicedict.data.DictionaryInfo
@@ -33,7 +35,10 @@ class DictionaryManagerActivity : AppCompatActivity() {
             refresh()
         },
         onDelete = { info -> confirmDelete(info) },
+        onStartDrag = { holder -> touchHelper.startDrag(holder) },
     )
+
+    private lateinit var touchHelper: ItemTouchHelper
 
     private val pickTree =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -81,6 +86,27 @@ class DictionaryManagerActivity : AppCompatActivity() {
         }
         binding.dictList.layoutManager = LinearLayoutManager(this)
         binding.dictList.adapter = adapter
+        touchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN,
+            0,
+        ) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder,
+            ): Boolean {
+                adapter.moveItem(viewHolder.bindingAdapterPosition, target.bindingAdapterPosition)
+                return true
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) = Unit
+
+            override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                super.clearView(recyclerView, viewHolder)
+                repo.setOrder(adapter.itemIds())
+            }
+        })
+        touchHelper.attachToRecyclerView(binding.dictList)
         binding.importButton.setOnClickListener {
             pickTree.launch(null)
         }
@@ -96,7 +122,7 @@ class DictionaryManagerActivity : AppCompatActivity() {
     private fun refresh() {
         lifecycleScope.launch {
             val list = withContext(Dispatchers.IO) { repo.listDictionaries() }
-            adapter.submitList(list)
+            adapter.submitItems(list)
             binding.emptyView.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
         }
     }

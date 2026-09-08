@@ -37,8 +37,12 @@ object MatchRank {
  * 这些噪音不应再出现；只有当所有词典都没有精确/前缀命中时才展示模糊结果。
  */
 object LookupRanking {
-    fun rankAndFilter(items: List<LookupItem>): List<LookupItem> {
-        val sorted = items.sortedBy { it.rank }
+    fun rankAndFilter(
+        items: List<LookupItem>,
+        dictionaries: List<DictionaryInfo> = emptyList(),
+    ): List<LookupItem> {
+        val priority = dictionaries.mapIndexed { index, info -> info.id to index }.toMap()
+        val sorted = items.sortedWith(compareBy<LookupItem> { it.rank }.thenBy { priority[it.dictId] ?: Int.MAX_VALUE })
         return if (sorted.any { it.rank <= MatchRank.PREFIX }) {
             sorted.filter { it.rank <= MatchRank.PREFIX }
         } else {
@@ -81,7 +85,7 @@ class LookupEngine(private val repo: DictionaryRepository) {
                         }
                     }.getOrElse { emptyList() }
                 }
-            }.awaitAll().flatten().let { LookupRanking.rankAndFilter(it) }
+            }.awaitAll().flatten().let { LookupRanking.rankAndFilter(it, dicts) }
         }
 
     fun article(dictId: String, offset: Long, size: Int) = repo.article(dictId, offset, size)

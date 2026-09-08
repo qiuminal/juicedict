@@ -16,6 +16,7 @@ data class DictionaryInfo(
     val dictFileName: String,
     val bundled: Boolean,
     val enabled: Boolean,
+    val order: Int,
 ) : Parcelable {
 
     constructor(parcel: Parcel) : this(
@@ -30,6 +31,7 @@ data class DictionaryInfo(
         parcel.readString() ?: "",
         parcel.readByte().toInt() != 0,
         parcel.readByte().toInt() != 0,
+        parcel.readInt(),
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
@@ -44,6 +46,7 @@ data class DictionaryInfo(
         parcel.writeString(dictFileName)
         parcel.writeByte(if (bundled) 1 else 0)
         parcel.writeByte(if (enabled) 1 else 0)
+        parcel.writeInt(order)
     }
 
     override fun describeContents(): Int = 0

@@ -17,6 +17,16 @@
         android:orientation="horizontal"
         android:padding="14dp">
 
+        <ImageView
+            android:id="@+id/dragHandle"
+            android:layout_width="28dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="6dp"
+            android:contentDescription="@string/reorder_dict"
+            android:padding="5dp"
+            android:src="@drawable/ic_drag_handle"
+            android:tint="@color/dict_drag_handle" />
+
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"

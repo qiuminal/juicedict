@@ -9,7 +9,7 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        app:contentInsetEnd="12dp"
+        app:contentInsetEnd="28dp"
          app:navigationIcon="@drawable/ic_back"
         app:title="@string/manager_title" />
 

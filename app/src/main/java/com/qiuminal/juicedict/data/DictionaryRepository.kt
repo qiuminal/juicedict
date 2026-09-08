@@ -138,14 +138,25 @@ class DictionaryRepository(private val context: Context) {
                     dictFileName = dictFile?.name ?: "",
                     bundled = dir.name in bundledNames,
                     enabled = entry?.optBoolean("enabled", true) ?: true,
+                    order = entry?.optInt("order", Int.MAX_VALUE) ?: Int.MAX_VALUE,
                 )
             )
         }
-        out.sortBy { it.bookName }
+        out.sortWith(compareBy<DictionaryInfo> { it.order }.thenBy { it.bookName })
         return out
     }
 
     fun listEnabled(): List<DictionaryInfo> = listDictionaries().filter { it.enabled }
+
+    fun setOrder(ids: List<String>) {
+        val meta = loadMeta()
+        ids.forEachIndexed { index, id ->
+            val entry = meta.optJSONObject(id) ?: JSONObject()
+            entry.put("order", index)
+            meta.put(id, entry)
+        }
+        saveMeta(meta)
+    }
 
     /**
      * Load (and cache) the [StarDict] instance for a dictionary.

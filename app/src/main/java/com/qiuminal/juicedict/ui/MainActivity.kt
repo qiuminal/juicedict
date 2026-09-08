@@ -99,6 +99,11 @@ class MainActivity : AppCompatActivity() {
 
         binding.resultList.layoutManager = LinearLayoutManager(this)
         binding.resultList.adapter = adapter
+        // 候选结果开始上下拖动时收起输入法，避免键盘遮挡列表内容。
+        binding.resultList.setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_MOVE) hideKeyboard()
+            false
+        }
 
         binding.copyButton.setOnClickListener { copyDetail() }
         binding.shareButton.setOnClickListener { shareDetail() }
@@ -350,6 +355,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** 点击候选词：收起候选列表，原地展开词条详情。 */
+    private fun hideKeyboard() {
+        (getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
+            ?.hideSoftInputFromWindow(binding.searchInput.windowToken, 0)
+    }
+
     private fun showDetail(item: LookupItem) {
         currentItem = item
         binding.resultList.visibility = View.GONE

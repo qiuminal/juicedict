@@ -20,6 +20,19 @@
 
 两版必须使用相同的版本号和发布日期。对内版可以比对外版更详细，但不得与对外版的事实相冲突。后续发版默认先整理对内详细版，再由用户确认对外精简版。
 
+## GitHub Actions 定时发布
+
+v0.1.1 采用 GitHub Actions 云端构建和发布，不使用本机 APK 作为 GitHub Release 附件。工作流使用 `0 3 * * *`，即北京时间每天 11:00（UTC+8）；同时提供 `workflow_dispatch` 手动补发入口。工作流会在 Release 已存在时安全跳过，避免定时任务重复覆盖同一版本。
+
+GitHub Actions Secrets 应配置：
+
+- `JUICEDICT_KEYSTORE_BASE64`：release.keystore 的 Base64 内容
+- `JUICEDICT_STORE_PASSWORD`
+- `JUICEDICT_KEY_ALIAS`
+- `JUICEDICT_KEY_PASSWORD`
+
+签名密钥和密码不得写入仓库、日志或 Release 正文。工作流只在 runner 临时目录还原 keystore，构建结束后由 runner 清理。GitHub Actions 的 schedule 可能因 GitHub 调度延迟而晚于目标时间；发布后应核验实际运行时间和 Release 结果。
+
 ## 核心原则
 
 1. 发版需用户确认：任何对外发布（新建 GitHub Release、对已发布 Release 换源或替换附件）都必须先经用户确认；测试包仅供验证，不视为发布。
@@ -27,14 +40,14 @@
    - 历史全量更新日志只在客户端「关于页」展示（应用内需展示整个发展历程），由客户端按版本列表渲染。
    - 反面示例：v0.0.2 Release 正文里混入 v0.0.1 日志即属错误，应只保留 v0.0.2 条目 + 安装说明 + 必要备注。
 3. 更新日志文本需用户确认：版本号（versionCode / versionName）与日志条目以用户确认为准，不得擅自新增条目或改动措辞。
-4. 每个 APK 必须能对应到精确源码：出包前先用 scripts/snapshot-source.ps1 生成源码切片（outputs/source-snapshots/APK名-src）。
+4. 每个 APK 必须能对应到精确源码：出包前先用 scripts/snapshot-source.ps1 生成源码切片（build-artifacts/source-snapshots/APK名-src）。
    - 切片排除 .git、keystore/、keystore.properties、local.properties、internal-dicts/ 等敏感或非仓库文件；APK 名与切片名一一对应，可复现任意包。
 
 ## 发布流程
 
 1. 汇总本版本完整功能、技术实现、修复和验证清单，先更新仓库内 `CHANGELOG-INTERNAL.md`。
 2. 从对内详细版提炼「仅本版本」的对外精简日志，交用户确认，并同步到客户端关于页和 GitHub Release 草稿。
-3. 构建正式 release APK（签名证书须与历史发布一致，可覆盖安装），生成对应源码切片。
-4. 打 tag 并推送（如 v0.0.3），创建 GitHub Release：title 与 tag 为 v版本；正文仅本版本对外日志 + 安装说明（必要时附补丁/安全备注）；附件命名 JuiceDict-v版本-release.apk。
-5. 发布后校验：releases/latest 已指向新 tag；附件 SHA-256 与本地构建一致；APK 签名证书 SHA-256 与历史一致；工作树干净，远端 tag 等于推送提交。
+3. 用户确认后，提交版本号、日志、GitHub Actions 工作流并推送到 `main`。
+4. GitHub Actions 在北京时间 11:00（UTC 03:00）运行：执行单元测试、构建正式 release APK、验证版本号与历史签名证书，然后创建 `v0.1.1` tag 和 GitHub Release，上传 APK。
+5. 发布后校验：`releases/latest` 已指向新 tag；附件 SHA-256 与 GitHub Actions 构建产物一致；APK 签名证书 SHA-256 与历史一致；远端 tag 等于构建提交。
 6. 补丁换源：对已发布 Release 修复时保持版本号与签名不变，仅替换同名附件，并在正文追加简短备注。

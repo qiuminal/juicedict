@@ -1,5 +1,6 @@
 <resources>
     <color name="ic_launcher_background">#3949AB</color>
+    <color name="dict_drag_handle">#9AA0A6</color>
 
     <!-- Wi-Fi 传词典（视觉稿配色） -->
     <color name="transfer_page_bg">#f3f5f7</color>
