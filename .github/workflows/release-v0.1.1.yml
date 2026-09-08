@@ -2,8 +2,8 @@ name: JuiceDict v0.1.1 Release
 
 on:
   schedule:
-    # 03:30 UTC = 11:30 Asia/Shanghai. GitHub may start scheduled jobs late.
-    - cron: "30 3 * * *"
+    # 04:00 UTC = 12:00 Asia/Shanghai. GitHub may start scheduled jobs late.
+    - cron: "0 4 * * *"
   workflow_dispatch:
 
 permissions:
