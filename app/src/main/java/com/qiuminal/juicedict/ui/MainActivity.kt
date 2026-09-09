@@ -16,7 +16,22 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
+import android.widget.TextView
+import android.widget.LinearLayout
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
+import android.graphics.Typeface
+import android.util.TypedValue
+import com.google.android.material.color.MaterialColors
 import java.util.Locale
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -44,7 +59,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val engine get() = (application as App).lookupEngine
 
-    private val adapter = LookupAdapter { item -> showDetail(item) }
+    private val adapter = LookupAdapter { item ->
+        detailOpenedFromHistory = false
+        showDetail(item)
+    }
     private var searchJob: Job? = null
     private var detailJob: Job? = null
     private var lastQuery: String? = null
@@ -52,6 +70,20 @@ class MainActivity : AppCompatActivity() {
     private var currentItem: LookupItem? = null
     /** 程序性 setText（互见跳转 / 反查）时不触发输入框自动查询。 */
     private var suppressAutoSearch = false
+    /** 仅历史卡片直达详情时为 true；系统返回应清空并回到首页。 */
+    private var detailOpenedFromHistory = false
+    private val historyPrefs by lazy { getSharedPreferences("query_history", Context.MODE_PRIVATE) }
+    private var historyHidden = false
+    private val historyEntries = ArrayList<HistoryEntry>()
+
+    private data class HistoryEntry(
+        val word: String,
+        val preview: String,
+        val dictName: String,
+        val dictId: String,
+        val offset: Long,
+        val size: Int,
+    )
     /** 系统 TTS：朗读详情页词条标题（不内置任何引擎/资源）。 */
     private var tts: TextToSpeech? = null
     private var ttsReady = false
@@ -104,6 +136,26 @@ class MainActivity : AppCompatActivity() {
             if (event.actionMasked == MotionEvent.ACTION_MOVE) hideKeyboard()
             false
         }
+        loadQueryHistory()
+        renderQueryHistory()
+        binding.historyVisibility.setOnClickListener {
+            historyHidden = !historyHidden
+            historyPrefs.edit().putBoolean("hidden", historyHidden).apply()
+            renderQueryHistory()
+        }
+        binding.historyClear.setOnClickListener {
+            historyEntries.clear()
+            saveQueryHistory()
+            renderQueryHistory()
+        }
+        binding.searchLayout.setEndIconOnClickListener {
+            binding.searchInput.text?.clear()
+            binding.searchInput.requestFocus()
+            binding.searchInput.post {
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(binding.searchInput, InputMethodManager.SHOW_IMPLICIT)
+            }
+        }
 
         binding.copyButton.setOnClickListener { copyDetail() }
         binding.shareButton.setOnClickListener { shareDetail() }
@@ -144,8 +196,11 @@ class MainActivity : AppCompatActivity() {
             override fun afterTextChanged(s: Editable?) {
                 if (suppressAutoSearch) return
                 val text = s?.toString().orEmpty()
+                binding.resultList.scrollToPosition(0)
+                binding.resultList.post { binding.resultList.scrollToPosition(0) }
+                renderQueryHistory()
                 if (text.isEmpty()) {
-                    // 点击搜索框清除按钮（×）：清空输入、收起详情，回到初始状态
+                    // 点击清除后回到可直接输入新词的状态
                     hideDetailAndReset()
                 } else if (binding.detailView.visibility == View.VISIBLE) {
                     // 详情打开时继续输入：收起详情、回到候选列表
@@ -163,7 +218,9 @@ class MainActivity : AppCompatActivity() {
             when {
                 binding.drawerLayout.isDrawerOpen(GravityCompat.START) ->
                     binding.drawerLayout.closeDrawer(GravityCompat.START)
-                binding.detailView.visibility == View.VISIBLE -> showListMode()
+                binding.detailView.visibility == View.VISIBLE -> {
+                    if (detailOpenedFromHistory) returnFromHistoryDetail() else showListMode()
+                }
                 else -> finish()
             }
         }
@@ -330,6 +387,139 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun loadQueryHistory() {
+        historyEntries.clear()
+        historyHidden = historyPrefs.getBoolean("hidden", false)
+        val raw = historyPrefs.getString("items", "").orEmpty()
+        if (raw.isNotEmpty()) runCatching {
+            val array = JSONArray(raw)
+            for (i in 0 until array.length()) {
+                val obj = array.optJSONObject(i) ?: continue
+                val word = obj.optString("word").trim()
+                if (word.isNotEmpty()) historyEntries.add(
+                    HistoryEntry(word, obj.optString("preview"), obj.optString("dictName"), obj.optString("dictId"), obj.optLong("offset"), obj.optInt("size"))
+                )
+            }
+        }
+    }
+
+    private fun saveQueryHistory() {
+        val array = JSONArray()
+        historyEntries.forEach { entry ->
+            array.put(JSONObject().apply {
+                put("word", entry.word)
+                put("preview", entry.preview)
+                put("dictName", entry.dictName)
+                put("dictId", entry.dictId)
+                put("offset", entry.offset)
+                put("size", entry.size)
+            })
+        }
+        historyPrefs.edit().putString("items", array.toString()).apply()
+    }
+
+    private fun recordQueryHistory(item: LookupItem) {
+        val entry = HistoryEntry(item.word, item.preview, item.dictName, item.dictId, item.offset, item.size)
+        historyEntries.removeAll { it.word == entry.word }
+        historyEntries.add(0, entry)
+        while (historyEntries.size > 30) historyEntries.removeAt(historyEntries.lastIndex)
+        saveQueryHistory()
+        renderQueryHistory()
+    }
+
+    private fun renderQueryHistory() {
+        val container = binding.historyContainer
+        val leftColumn = binding.historyLeftColumn
+        val rightColumn = binding.historyRightColumn
+        leftColumn.removeAllViews()
+        rightColumn.removeAllViews()
+        val hasHistory = historyEntries.isNotEmpty()
+        val onHome = binding.searchInput.text?.isNullOrEmpty() == true && binding.detailView.visibility != View.VISIBLE
+        val showHistoryHeader = hasHistory && onHome
+        val showHistoryCards = showHistoryHeader && !historyHidden
+        val historyParams = binding.historyContainer.layoutParams as LinearLayout.LayoutParams
+        if (showHistoryCards) {
+            historyParams.height = 0
+            historyParams.weight = 1f
+        } else {
+            historyParams.height = LinearLayout.LayoutParams.WRAP_CONTENT
+            historyParams.weight = 0f
+        }
+        binding.historyContainer.layoutParams = historyParams
+        binding.historyContainer.visibility = if (showHistoryHeader) View.VISIBLE else View.GONE
+        binding.resultArea.visibility = if (showHistoryCards) View.GONE else View.VISIBLE
+        binding.historyItems.visibility = if (historyHidden) View.GONE else View.VISIBLE
+        if (onHome) binding.emptyView.visibility = if (hasHistory) View.GONE else View.VISIBLE
+        binding.historyVisibility.setImageResource(if (historyHidden) R.drawable.ic_visibility_off else R.drawable.ic_visibility)
+        binding.historyVisibility.contentDescription = if (historyHidden) "显示查询历史" else "隐藏查询历史"
+        binding.historyClear.visibility = if (historyHidden) View.GONE else View.VISIBLE
+        if (!hasHistory || !onHome || historyHidden) return
+
+        // 历史卡片使用低饱和度中性色，和正式候选/详情的主题强调色区隔。
+        val surfaceContainer = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorSurfaceContainerLow, Color.LTGRAY)
+        val historyTitleColor = Color.rgb(92, 94, 100)
+        val historyPreviewColor = Color.rgb(118, 120, 126)
+        val historySourceColor = Color.rgb(166, 136, 207)
+        historyEntries.take(HISTORY_DISPLAY_LIMIT).forEachIndexed { index, entry ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14), dp(11), dp(14), dp(11))
+                background = GradientDrawable().apply {
+                    setColor(surfaceContainer)
+                    cornerRadius = dp(12).toFloat()
+                }
+                setOnClickListener { openHistoryDetail(entry) }
+            }
+            val titleLine = TextView(this).apply {
+                textSize = 16f
+                setTextColor(historyTitleColor)
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                val line = SpannableStringBuilder(entry.word).apply {
+                    setSpan(StyleSpan(Typeface.BOLD), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    append("  ")
+                    val start = length
+                    append(entry.dictName)
+                    setSpan(ForegroundColorSpan(historySourceColor), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    setSpan(RelativeSizeSpan(0.88f), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                text = line
+            }
+            val preview = TextView(this).apply {
+                text = entry.preview.ifBlank { "暂无释义预览" }
+                textSize = 14.5f
+                setTextColor(historyPreviewColor)
+                maxLines = 4
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setLineSpacing(0f, 1.12f)
+            }
+            row.addView(titleLine, LinearLayout.LayoutParams(-1, -2))
+            row.addView(preview, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+            val targetColumn = if (index % 2 == 0) leftColumn else rightColumn
+            targetColumn.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+        }
+    }
+
+    private fun dp(value: Int): Int = TypedValue.applyDimension(
+        TypedValue.COMPLEX_UNIT_DIP,
+        value.toFloat(),
+        resources.displayMetrics,
+    ).toInt()
+
+    private fun openHistoryDetail(entry: HistoryEntry) {
+        suppressAutoSearch = true
+        binding.searchInput.setText(entry.word)
+        binding.searchInput.setSelection(entry.word.length)
+        suppressAutoSearch = false
+        detailOpenedFromHistory = true
+        // 保持搜索框焦点、光标和清除键待命，但主动关闭软键盘。
+        binding.searchInput.requestFocus()
+        binding.searchInput.setSelection(binding.searchInput.text?.length ?: 0)
+        binding.searchInput.post { hideKeyboard() }
+        showDetail(LookupItem(entry.dictId, entry.dictName, entry.word, entry.offset, entry.size, entry.preview, MatchRank.EXACT))
+    }
+
     private fun runSearch() {
         val query = binding.searchInput.text?.toString()?.trim().orEmpty()
         if (query.isEmpty()) {
@@ -338,6 +528,7 @@ class MainActivity : AppCompatActivity() {
             binding.emptyView.visibility = View.VISIBLE
             binding.emptyView.setText(R.string.empty_query_hint)
             adapter.submitList(emptyList())
+            renderQueryHistory()
             return
         }
         binding.progress.visibility = View.VISIBLE
@@ -361,6 +552,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showDetail(item: LookupItem) {
+        recordQueryHistory(item)
         currentItem = item
         binding.resultList.visibility = View.GONE
         binding.emptyView.visibility = View.GONE
@@ -376,12 +568,12 @@ class MainActivity : AppCompatActivity() {
 
         detailJob?.cancel()
         detailJob = lifecycleScope.launch {
-            val article = withContext(Dispatchers.Default) {
+            val article = if (item.dictId == "history") null else withContext(Dispatchers.Default) {
                 engine.article(item.dictId, item.offset, item.size)
             }
             if (binding.detailView.visibility != View.VISIBLE) return@launch
             if (article == null) {
-                binding.content.text = getString(R.string.not_loaded)
+                binding.content.text = if (item.preview.isNotBlank()) item.preview else getString(R.string.not_loaded)
             } else {
                 binding.content.text = HtmlCompat.fromHtml(
                     article.toHtml(),
@@ -397,6 +589,7 @@ class MainActivity : AppCompatActivity() {
      * 都没有精确命中时退化为普通候选列表。
      */
     private fun jumpToWord(word: String) {
+        detailOpenedFromHistory = false
         val trimmed = word.trim()
         if (trimmed.isEmpty()) return
         val sourceDict = currentItem?.dictId
@@ -460,8 +653,18 @@ class MainActivity : AppCompatActivity() {
         binding.resultList.post { binding.resultList.scrollToPosition(0) }
     }
 
+    private fun returnFromHistoryDetail() {
+        detailOpenedFromHistory = false
+        suppressAutoSearch = true
+        binding.searchInput.text?.clear()
+        suppressAutoSearch = false
+        hideDetailAndReset(showKeyboard = false)
+        binding.searchInput.clearFocus()
+        renderQueryHistory()
+    }
+
     /** 清空输入（点 ×）：详情消失，回到初始空状态，可发起新查询。 */
-    private fun hideDetailAndReset() {
+    private fun hideDetailAndReset(showKeyboard: Boolean = true) {
         tts?.stop()
         detailJob?.cancel()
         lastQuery = null
@@ -471,6 +674,14 @@ class MainActivity : AppCompatActivity() {
         binding.emptyView.visibility = View.VISIBLE
         binding.emptyView.setText(R.string.empty_query_hint)
         adapter.submitList(emptyList())
+        if (showKeyboard) {
+            binding.searchInput.requestFocus()
+            binding.searchInput.post {
+                (getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
+                    ?.showSoftInput(binding.searchInput, InputMethodManager.SHOW_IMPLICIT)
+            }
+        }
+        renderQueryHistory()
     }
 
     private fun copyDetail() {
@@ -481,6 +692,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private companion object {
+        const val HISTORY_DISPLAY_LIMIT = 30
         const val TTS_TAG = "JuiceDictTTS"
     }
 
