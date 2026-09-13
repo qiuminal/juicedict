@@ -22,7 +22,9 @@
 
 ## GitHub Actions 定时发布
 
-v0.1.2 采用 GitHub Actions 云端构建和发布，不使用本机 APK 作为 GitHub Release 附件。工作流使用 `0 4 * * *`，即北京时间每天 12:00（UTC+8）；同时提供 `workflow_dispatch` 手动补发入口。工作流会在 Release 已存在时安全跳过，避免定时任务重复覆盖同一版本。
+v0.1.3 采用 GitHub Actions 云端构建和发布，不使用本机 APK 作为 GitHub Release 附件。工作流使用 `0 4 * * *`，即北京时间每天 12:00（UTC+8）；同时提供 `workflow_dispatch` 手动补发入口。工作流会在 Release 已存在时安全跳过，避免定时任务重复覆盖同一版本。
+
+历史版本工作流 `release-v0.1.1.yml`（内容为 v0.1.2）在 v0.1.2 发布完成后已停用定时任务，仅保留 `workflow_dispatch` 手动入口；当前定时发布由 `release-v0.1.3.yml` 负责。
 
 GitHub Actions Secrets 应配置：
 

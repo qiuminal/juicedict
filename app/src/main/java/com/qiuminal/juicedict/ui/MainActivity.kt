@@ -435,20 +435,20 @@ class MainActivity : AppCompatActivity() {
         rightColumn.removeAllViews()
         val hasHistory = historyEntries.isNotEmpty()
         val onHome = binding.searchInput.text?.isNullOrEmpty() == true && binding.detailView.visibility != View.VISIBLE
-        val showHistoryHeader = hasHistory && onHome
-        val showHistoryCards = showHistoryHeader && !historyHidden
+        val showHistory = hasHistory && onHome
+        val showHistoryCards = showHistory && !historyHidden
+        // 历史模块显示期间固定占位，睁眼/闭眼只切换内容，不改变父容器的权重分配，
+        // 避免 LinearLayout 二次测量时把历史区域整体上移。
         val historyParams = binding.historyContainer.layoutParams as LinearLayout.LayoutParams
-        if (showHistoryCards) {
-            historyParams.height = 0
-            historyParams.weight = 1f
-        } else {
-            historyParams.height = LinearLayout.LayoutParams.WRAP_CONTENT
-            historyParams.weight = 0f
+        val wantWeight = if (showHistory) 1f else 0f
+        if (historyParams.weight != wantWeight) {
+            historyParams.weight = wantWeight
+            historyParams.height = if (showHistory) 0 else LinearLayout.LayoutParams.WRAP_CONTENT
+            binding.historyContainer.layoutParams = historyParams
         }
-        binding.historyContainer.layoutParams = historyParams
-        binding.historyContainer.visibility = if (showHistoryHeader) View.VISIBLE else View.GONE
-        binding.resultArea.visibility = if (showHistoryCards) View.GONE else View.VISIBLE
-        binding.historyItems.visibility = if (historyHidden) View.GONE else View.VISIBLE
+        binding.historyContainer.visibility = if (showHistory) View.VISIBLE else View.GONE
+        binding.resultArea.visibility = if (showHistory) View.GONE else View.VISIBLE
+        binding.historyItems.visibility = if (showHistoryCards) View.VISIBLE else View.GONE
         if (onHome) binding.emptyView.visibility = if (hasHistory) View.GONE else View.VISIBLE
         binding.historyVisibility.setImageResource(if (historyHidden) R.drawable.ic_visibility_off else R.drawable.ic_visibility)
         binding.historyVisibility.contentDescription = if (historyHidden) "显示查询历史" else "隐藏查询历史"

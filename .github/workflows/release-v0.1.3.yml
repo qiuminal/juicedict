@@ -1,15 +1,16 @@
-name: JuiceDict v0.1.2 Release
+name: JuiceDict v0.1.3 Release
 
 on:
-  # v0.1.2 已完成发布，停用定时任务，仅保留手动入口作为历史备份。
-  # 后续版本的定时发布由 release-v0.1.3.yml 负责。
+  schedule:
+    # 04:00 UTC = 12:00 Asia/Shanghai. GitHub may start scheduled jobs late.
+    - cron: "0 4 * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: juicedict-v0.1.2-release
+  group: juicedict-v0.1.3-release
   cancel-in-progress: false
 
 jobs:
@@ -56,27 +57,27 @@ jobs:
           AAPT2="$ANDROID_HOME/build-tools/35.0.0/aapt2"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           test -f "$APK"
-          "$AAPT2" dump badging "$APK" | grep -F "versionCode='5' versionName='0.1.2'"
+          "$AAPT2" dump badging "$APK" | grep -F "versionCode='6' versionName='0.1.3'"
           EXPECTED_CERT="00173116DD7CDC1F6BC192BC876335F379EA387CDCD59222FE758F9F1D2986D0"
           CERT=$("$APKSIGNER" verify --print-certs "$APK" 2>&1 | sed -n 's/.*SHA-256 digest: //p' | tr -d '\r' | tr '[:lower:]' '[:upper:]')
           test "$CERT" = "$EXPECTED_CERT"
           sha256sum "$APK" | tee apk-sha256.txt
 
-      - name: Create v0.1.2 GitHub Release once
+      - name: Create v0.1.3 GitHub Release once
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if gh release view v0.1.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "v0.1.2 already exists; scheduled run is a no-op."
+          if gh release view v0.1.3 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v0.1.3 already exists; scheduled run is a no-op."
             exit 0
           fi
-          gh release create v0.1.2 \
+          gh release create v0.1.3 \
             app/build/outputs/apk/release/app-release.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.1.2" \
-            --notes-file release-notes/v0.1.2.md \
+            --title "v0.1.3" \
+            --notes-file release-notes/v0.1.3.md \
             --latest
 
       - name: Remove temporary signing material
