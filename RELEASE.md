@@ -53,3 +53,4 @@ GitHub Actions Secrets 应配置：
 4. GitHub Actions 在北京时间 12:00（UTC 04:00）运行：执行单元测试、构建正式 release APK、验证版本号与历史签名证书，然后创建 `v0.1.2` tag 和 GitHub Release，上传 APK。
 5. 发布后校验：`releases/latest` 已指向新 tag；附件 SHA-256 与 GitHub Actions 构建产物一致；APK 签名证书 SHA-256 与历史一致；远端 tag 等于构建提交。
 6. 补丁换源：对已发布 Release 修复时保持版本号与签名不变，仅替换同名附件，并在正文追加简短备注。
+7. 附件命名：GitHub Release 的 APK 附件统一命名为 `JuiceDict-vX.Y.Z-release.apk`（与 v0.1.0 / v0.0.x 历史命名一致），不使用 Gradle 产物默认名 `app-release.apk`。工作流在发布前把构建产物复制为该名称后再上传。
