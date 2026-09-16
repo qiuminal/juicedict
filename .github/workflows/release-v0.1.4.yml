@@ -1,8 +1,17 @@
 name: JuiceDict v0.1.4 Release
 
+# 本工作流是仓库唯一的发布工作流（见 RELEASE.md「GitHub Actions 发布方式」）。
+# 下一个版本发布时：改文件名为 release-vX.Y.Z.yml，并同步更新其中的
+# 版本号断言、tag、Release 标题与附件名；不要为每个版本新增工作流文件。
+#
+# 两条硬性约束（均由实际故障得出，勿回退）：
+#   1. 只保留 workflow_dispatch，禁止添加 schedule —— 残留 cron 会导致
+#      版本发完后仓库每天空跑 CI 并以失败结束（v0.1.2、v0.1.3 均发生过）。
+#   2. 禁止使用 android-actions/setup-android —— 它会安装已被 Android 仓库
+#      移除的 'tools' 包，报 Failed to find package 'tools' 使构建中断；
+#      runner 已预装 SDK，直接导出路径即可。
+
 on:
-  # 版本发布完成后必须移除定时触发器：残留的 cron 会让仓库每天空跑 CI。
-  # 当前仅保留手动入口，需要发布时用 workflow_dispatch 触发。
   workflow_dispatch:
 
 permissions:

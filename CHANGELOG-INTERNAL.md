@@ -20,7 +20,9 @@
 - 版本号更新为 `versionCode = 7`、`versionName = "0.1.4"`。
 - 本地验证：`testDebugUnitTest` 79 项全部通过（含新增 2 项 dictzip 末块回归）；`assembleRelease` 通过。
 - Release APK 使用历史正式签名证书验证通过。
-- `release-v0.1.4.yml` 仅保留 `workflow_dispatch`，不含 `schedule`，避免发布完成后每日空跑 CI。
+- 发布工作流改用 runner 预装 Android SDK：`android-actions/setup-android` 会安装已被 Android 官方仓库移除的 `tools` 包，报 `Failed to find package 'tools'` 并以 exit 1 失败。移除该 Action，改为导出 `ANDROID_HOME` 并断言 `build-tools/35.0.0`、`platforms/android-35` 存在。
+- 删除已完成使命的旧工作流 `release-v0.1.1.yml`（v0.1.2）与 `release-v0.1.3.yml`：它们同样引用上述失效 Action，保留只会带来误触发后失败的风险。仓库自此只保留一个发布工作流。
+- `RELEASE.md` 重写发布规范：明确唯一工作流、禁用 setup-android、禁止 cron、附件命名、历史签名校验、交付需给完整路径、不虚构验证结果等约束。
 - 对外精简日志见 `release-notes/v0.1.4.md`，与客户端「关于 → 更新日志」保持核心内容一致。
 
 ## 0.1.3（2026-09-13）
