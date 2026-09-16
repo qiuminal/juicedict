@@ -26,7 +26,19 @@ jobs:
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        # ubuntu-latest runner 已预装 Android SDK（含 build-tools 35.0.0）。
+        # 不再使用 android-actions/setup-android：该 Action 会尝试安装已被
+        # Android 仓库移除的 'tools' 包，导致 sdkmanager 以 exit 1 失败
+        # （Failed to find package 'tools'）。这里只显式导出 SDK 路径。
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$SDK"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "SDK=$SDK" >> "$GITHUB_ENV"
+          test -d "$SDK/build-tools/35.0.0"
+          test -d "$SDK/platforms/android-35"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
