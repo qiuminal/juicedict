@@ -20,11 +20,11 @@
 
 两版必须使用相同的版本号和发布日期。对内版可以比对外版更详细，但不得与对外版的事实相冲突。后续发版默认先整理对内详细版，再由用户确认对外精简版。
 
-## GitHub Actions 定时发布
+## GitHub Actions 发布方式
 
-v0.1.3 采用 GitHub Actions 云端构建和发布，不使用本机 APK 作为 GitHub Release 附件。工作流使用 `0 4 * * *`，即北京时间每天 12:00（UTC+8）；同时提供 `workflow_dispatch` 手动补发入口。工作流会在 Release 已存在时安全跳过，避免定时任务重复覆盖同一版本。
+发布采用 GitHub Actions 云端构建，不使用本机 APK 作为 GitHub Release 附件。工作流提供 `workflow_dispatch` 手动入口，发布时手动触发；同时在 Release 已存在时安全跳过，避免重复覆盖同一版本。
 
-历史版本工作流 `release-v0.1.1.yml`（内容为 v0.1.2）在 v0.1.2 发布完成后已停用定时任务，仅保留 `workflow_dispatch` 手动入口；当前定时发布由 `release-v0.1.3.yml` 负责。
+**版本发布完成后必须移除工作流的 `schedule` 触发器。** 定时触发只适用于「已提交版本、等待指定时刻自动发布」的短窗口；版本一旦发布完成，残留的 cron 会让仓库每天空跑 CI，并在 Release 已存在时以失败结束。历史上 v0.1.2 与 v0.1.3 都出现过这一问题。当前仓库所有发布工作流均只保留 `workflow_dispatch`，不存在日常定时构建。
 
 GitHub Actions Secrets 应配置：
 
