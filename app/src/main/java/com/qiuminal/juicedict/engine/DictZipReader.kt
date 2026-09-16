@@ -114,8 +114,17 @@ class DictZipReader(file: File, cacheSize: Int = 16) : DictDataReader {
             val buffer = ByteArray(chunkLength)
             inflater.setInput(compressed)
             var n = 0
+            // dictzip 的每个 chunk 是独立的 raw deflate 片段，末尾块通常没有正常的
+            // 流结束标记：解压到实际长度后 inflate() 持续返回 0 且 finished() 恒为
+            // false。若只判断 finished()/缓冲未满就会在此死循环（朗道汉英等词典的
+            // 最后一个块必然命中，表现为查该块内词条卡死）。因此 inflate() 返回 0
+            // 且已无输入可消费时立即结束，避免死循环。
             while (!inflater.finished() && n < buffer.size) {
-                n += inflater.inflate(buffer, n, buffer.size - n)
+                val produced = inflater.inflate(buffer, n, buffer.size - n)
+                if (produced == 0) {
+                    if (inflater.needsInput() || inflater.needsDictionary()) break
+                }
+                n += produced
             }
             val result = if (n == buffer.size) buffer else buffer.copyOf(n)
             cache[i] = result

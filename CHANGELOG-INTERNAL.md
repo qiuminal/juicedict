@@ -1,3 +1,28 @@
+## 0.1.4（2026-09-16）
+
+### 词典查询
+
+- 修复部分采用 dictzip 压缩正文（`.dict.dz`）的词典，查询**位于文件末尾数据块内的词条**时会卡住、查不出来的问题。
+- 复现案例：朗道汉英词典 `stardict-langdao-ce-gb-2.4.2` 中「鼎」「鼎力」「鼎沸」等词条均可稳定复现查询失败，而同类软件 ColorDict 可正常查出，说明词典数据本身完好。
+- 排查结论（索引层无问题）：
+  - `.idx` 解析出 405719 条，与 `.ifo` 的 `wordcount=405719` 一致；
+  - 「鼎」位于文件序 404338，`offset=13121679`、`size=25`，前后条目偏移连续自洽（`黯然`+73 → `黯然神伤`+29 → `鼎`+25 → `鼎力`+16 → `鼎沸`+18）；
+  - 该词典 `.idx` 使用 UTF-8 词条与**大端序** offset/size，引擎解析正确；
+  - 复现引擎的排序与二分查找：`lowerBound(鼎)` 命中且比较结果为 0，排序无违规。
+- 根因：`DictZipReader.chunk()` 解压 dictzip 块时的循环条件不完整。dictzip 的每个块是独立 raw deflate 片段，**末尾块通常没有正常的 deflate 流结束标记**；当块的实际解压长度不足一个 `chunkLength`（该词典末块为 46876/58315 字节）时，`inflate()` 持续返回 0 而 `finished()` 恒为 false，`while (!finished() && n < buffer.size)` 永远成立，形成死循环。
+  - 前序块恰好解压满 `chunkLength`，循环因 `n < buffer.size` 不成立而自然退出，因此该缺陷只在**末尾块**暴露，表现为"只有文件靠后的词条查不出来"。
+- 修复：`inflate()` 返回 0 且 `needsInput()` 或 `needsDictionary()` 为真时立即结束循环，不再依赖 `finished()`。
+- 修复验证：以真实词典复现，修复前读取末块在 600 秒超时内无法返回；修复后 1 毫秒完成，`鼎 → an ancient cooking vessel`、`鼎力 → your kind effort`、`鼎沸 → noisy and confused`、首条 `一 → a; an; each; ...` 全部正确。
+- 新增回归测试 `DictZipLastChunkTest`：构造末块长度不足一个 chunk 的 dictzip，断言读取不挂死且内容正确（含 20 秒超时保护），覆盖"末块不足"与"跨完整块/末尾块连续读取"两种场景。
+
+### 工程与验证
+
+- 版本号更新为 `versionCode = 7`、`versionName = "0.1.4"`。
+- 本地验证：`testDebugUnitTest` 79 项全部通过（含新增 2 项 dictzip 末块回归）；`assembleRelease` 通过。
+- Release APK 使用历史正式签名证书验证通过。
+- `release-v0.1.4.yml` 仅保留 `workflow_dispatch`，不含 `schedule`，避免发布完成后每日空跑 CI。
+- 对外精简日志见 `release-notes/v0.1.4.md`，与客户端「关于 → 更新日志」保持核心内容一致。
+
 ## 0.1.3（2026-09-13）
 
 ### 查询历史界面
