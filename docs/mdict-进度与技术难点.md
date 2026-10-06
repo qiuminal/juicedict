@@ -243,7 +243,7 @@ p += lastLenBytes + unitSize
 .\gradlew.bat --offline :app:assembleDebug
 ```
 
-产物 `app/build/outputs/apk/debug/app-debug.apk` 已重新构建，大小 16,910,189 字节；`assembleDebug` 成功，本轮同时执行 `:app:testDebugUnitTest` 全部通过。`assembleDebug` 不触发 release 签名守卫（守卫条件是 taskNames 含 `"assemble"` 或含 `"Release"`，`assembleDebug` 两者都不满足）。
+产物 `app/build/outputs/apk/debug/app-debug.apk` 已重新构建，大小 16,877,232 字节（`aapt2 dump badging` 实测 `versionCode='8' versionName='0.1.5-debug'`）；`assembleDebug` 成功，本轮同时执行 `:app:testDebugUnitTest` 全部通过。`assembleDebug` 不触发 release 签名守卫（守卫条件是 taskNames 含 `"assemble"` 或含 `"Release"`，`assembleDebug` 两者都不满足）。
 
 已用真实 Android 设备（ADB serial `52ce1128`，`23127PN0CC`）验证 Wi-Fi 导入闭环：旧 APK 的上传页实际提供的 `OK_EXT` 只有 `.ifo/.idx/.idx.gz/.dict/.dict.dz/.syn`，在请求发出前就把 `.mdx/.mdd` 显示为「失败：不支持的文件类型」；手机端 `WifiImportEngine` 本身可以接收 MDict，直接 PUT 真实 MDX 已返回 `ok:true`。修复 `app/src/main/assets/wifi/import.html`：过滤器加入 `.mdx/.mdd`，并将 `.mdx` 与 `.dict/.dict.dz` 放到最后一个上传阶段，保证同一批 MDD/元数据先上传完成后再上传主体；同时更新页面说明。新增无依赖 Node 回归测试 `app/src/test/js/wifi-import.test.js`，覆盖 MDX/MDD 接纳、MDD 先于 MDX、StarDict 主体顺序、三路并发和 `/finish` 单次调用，`node --test` 结果 3/3 通过。
 
@@ -253,13 +253,28 @@ p += lastLenBytes + unitSize
 
 ```kotlin
 applicationIdSuffix = ".debug"      // com.qiuminal.juicedict.debug
-versionNameSuffix = "-debug"        // 0.1.4-debug
+versionNameSuffix = "-debug"        // 0.1.5-debug
 resValue("string", "app_name", "就词典 Debug")
 ```
 
 因此 debug 包与已安装的正式版是**两个独立应用**，可同时安装、数据互不覆盖，桌面图标分别显示「就词典」「就词典 Debug」。`namespace` 与源码包名仍为 `com.qiuminal.juicedict` 不变，所以类名、`R` 类、`BuildConfig` 引用都不需要改；FileProvider 的 authority 在 manifest 里写的是 `${applicationId}.fileprovider`，会随后缀自动变成 `com.qiuminal.juicedict.debug.fileprovider`，`AppUpdater.kt:130` 用的 `"${context.packageName}.fileprovider"` 也在运行期自动跟随。
 
-已用 `aapt2 dump badging` 核实产物：`package: name='com.qiuminal.juicedict.debug' versionName='0.1.4-debug'`、`application-label:'就词典 Debug'`。
+已用 `aapt2 dump badging` 核实产物：`package: name='com.qiuminal.juicedict.debug' versionCode='8' versionName='0.1.5-debug'`、`application-label:'就词典 Debug'`。
+
+词典管理页的格式标签：`DictionaryAdapter` 原先对非内置词典固定显示「已导入」，现改为按 `DictionaryInfo.dictFileName` 判断——以 `.mdx` 结尾显示 `MDict`，其余显示 `StarDict`，内置词典仍显示「内置」。真机实测：`CC-CEDICT`（内置）显示「内置」，`xinhua`（15776 词条）与 `上古擬音 (Baxter-Sagart)`（12153 词条）均显示「MDict」。
+
+### 5.4 v0.1.5 发布
+
+`versionCode = 8` / `versionName = "0.1.5"`，发布工作流 `.github/workflows/release-v0.1.5.yml`（仓库唯一发布工作流）。Release 已创建并核实：tag `v0.1.5`、target `370cd041a47312593126b9e2bc1771fa528f94bf`、附件 `JuiceDict-v0.1.5-release.apk`（14,428,884 字节）、非 draft、非 prerelease。工作流 9 个步骤全绿，第 8 步 `apksigner verify --print-certs` 断言签名证书 SHA-256 与历史证书一致。
+
+发布过程中暴露一个真实缺陷：`engine/StarDict.kt` 未随 MDict 提交上传，仓库里仍是 MDict 之前的旧类（自带 `data class Hit`、只实现 `AutoCloseable`、没有 `lookupSmart`），而 `DictionaryRepository` 已按 `DictionaryEngine?` 分派，导致 main 编译失败：
+
+```
+DictionaryRepository.kt:236:64 Return type mismatch: expected 'DictionaryEngine?', actual 'StarDict?'
+DictionaryRepository.kt:277:27 Argument type mismatch: actual type is 'StarDict', but 'DictionaryEngine' was expected
+```
+
+已补齐 `StarDict.kt` 与 `App.kt`（`MdxLog.sink` 转发到 logcat）后重新发布。**教训：本地 `gradlew` 能过不代表远端能过，推送后必须比对远端 blob 是否与本地的 LF 规范化内容一致**——本轮 28 个「差异文件」里有 26 个只是 CRLF/LF 差异，真正未同步的只有 2 个。
 
 ---
 
