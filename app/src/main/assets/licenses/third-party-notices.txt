@@ -27,6 +27,20 @@ version 3.0（GPL-3.0）发布。全文见项目根目录 LICENSE（本目录 gp
     仅调研其词典功能与 StarDict 集成方式，未复制其代码。
   - dictzip（.dict.dz 分块压缩格式），格式规范参考 dictd 项目
     （GPL-2.0-or-later）。
+  - MDict（MDX / MDD 词典格式），格式规范参考社区反向整理并公开的
+    MDict 2.0 文件格式说明，以及 pymdict 项目的 writemdict / readmdict
+    实现所固化的字节布局（`.mdx` / `.mdd` 区块结构、混合字节序、
+    UTF-16LE 头部属性区、关键字区前导校验）。本项目据此独立编写
+    Kotlin 解析器，未复制其源代码。
+    https://bitbucket.org/xwang/mdict-analysis
+    https://github.com/zhansliu/writemdict
+    pymdict 以 GPL-3.0-or-later 发布，与本项目许可兼容。
+
+【MDict 支持中未使用的第三方代码】
+  MDict 的 LZO1X 解压路径（`engine/mdict/Lzo1x.kt`）为本项目从零编写的
+  纯 Kotlin 实现，未引入 minilzo、python-lzo 或任何原生（NDK/JNI）LZO
+  库。MDict 中每个压缩块只保存去掉 5 字节帧头的裸 LZO1X 指令流，该
+  解压器即针对这一形式实现，并通过自建 fixture 校验。
 
 【开发依赖】
 以下组件以二进制 / 编译期形式使用，均为宽松许可：

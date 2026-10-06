@@ -1,6 +1,5 @@
 package com.qiuminal.juicedict.data
 
-import com.qiuminal.juicedict.engine.StarDict
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -53,7 +52,7 @@ object LookupRanking {
 
 /**
  * Aggregates lookup results across all enabled dictionaries.
- * All heavy work happens on [Dispatchers.Default]; StarDict instances are
+ * All heavy work happens on [Dispatchers.Default]; engine instances are
  * thread-safe for reads (RandomAccessFile reads are synchronized internally
  * per reader, index is immutable).
  */
@@ -71,15 +70,17 @@ class LookupEngine(private val repo: DictionaryRepository) {
                 async {
                     // 单部词典查询异常（损坏数据等）只丢掉该词典的结果，不影响其他词典。
                     runCatching {
-                        val sd = repo.open(info) ?: return@runCatching emptyList<LookupItem>()
-                        sd.lookupSmart(q, 60).map { hit ->
+                        // 门面按格式分派：StarDict 与 MDict 走同一条路径，调用点无需
+                        // 知道词典是什么格式。
+                        val dict = repo.open(info) ?: return@runCatching emptyList<LookupItem>()
+                        dict.lookupSmart(q, 60).map { hit ->
                             LookupItem(
                                 dictId = info.id,
                                 dictName = info.bookName,
                                 word = hit.word,
                                 offset = hit.offset,
                                 size = hit.size,
-                                preview = runCatching { sd.article(hit).preview(200) }.getOrDefault(""),
+                                preview = runCatching { dict.article(hit).preview(200) }.getOrDefault(""),
                                 rank = MatchRank.of(q, hit.word),
                             )
                         }

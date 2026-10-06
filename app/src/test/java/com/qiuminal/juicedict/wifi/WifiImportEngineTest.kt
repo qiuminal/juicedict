@@ -9,8 +9,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
+import java.util.zip.Adler32
 
 /**
  * Wi-Fi 传词典引擎的分组 / 校验 / 自动导入 / 收尾逻辑测试（纯 JVM）。
@@ -45,10 +47,11 @@ class WifiImportEngineTest {
         "StarDict's dict ifo file\nversion=2.4.2\nbookname=$name\nwordcount=$wordCount\n" +
             "idxfilesize=9999\nsametypesequence=m\n"
 
-    private fun put(relPath: String, content: String): WifiImportEngine.StoreOutcome {
-        val bytes = content.toByteArray(Charsets.UTF_8)
-        return engine.store(relPath, bytes.size.toLong(), ByteArrayInputStream(bytes))
-    }
+    private fun put(relPath: String, content: String): WifiImportEngine.StoreOutcome =
+        putBytes(relPath, content.toByteArray(Charsets.UTF_8))
+
+    private fun putBytes(relPath: String, bytes: ByteArray): WifiImportEngine.StoreOutcome =
+        engine.store(relPath, bytes.size.toLong(), ByteArrayInputStream(bytes))
 
     private fun stored(outcome: WifiImportEngine.StoreOutcome): WifiImportEngine.StoreOutcome.Stored {
         assertTrue("期望 Stored 实为 $outcome", outcome is WifiImportEngine.StoreOutcome.Stored)
@@ -155,6 +158,55 @@ class WifiImportEngineTest {
         assertTrue(installer.calls.size >= 2)
         assertEquals("new", File(installedRoot, "e/e.dict").readText())
         assertEquals("新版", Ifo.parse(File(installedRoot, "e/e.ifo").readText()).bookName)
+    }
+
+    @Test
+    fun `mdx晚于多个mdd到达时一次性安装全部资源包`() {
+        assertNull(stored(put("dict.2.mdd", "resource-2")).imported)
+        assertNull(stored(put("dict.mdd", "resource-0")).imported)
+        assertNull(stored(put("dict.1.mdd", "resource-1")).imported)
+        assertTrue("仅有 MDD 时不应调用安装器", installer.calls.isEmpty())
+
+        val outcome = stored(putBytes("dict.mdx", validMdxBytes()))
+        assertNotNull("MDX 到达后应触发导入", outcome.imported)
+        assertTrue(outcome.imported!!.ok)
+        assertEquals(1, installer.calls.size)
+        val (base, files) = installer.calls.single()
+        assertEquals("dict", base)
+        assertEquals(setOf("dict.mdx", "dict.mdd", "dict.1.mdd", "dict.2.mdd"), files.keys)
+        assertEquals("resource-0", files.getValue("dict.mdd").readText())
+        assertEquals("resource-1", files.getValue("dict.1.mdd").readText())
+        assertEquals("resource-2", files.getValue("dict.2.mdd").readText())
+    }
+
+    @Test
+    fun `finish对没有mdx的mdd组报告缺少mdx`() {
+        put("orphan.1.mdd", "resource")
+        val report = engine.finish()
+        assertEquals(1, report.incomplete.size)
+        assertEquals("orphan", report.incomplete.single().name)
+        assertTrue(report.incomplete.single().reason.contains(".mdx"))
+        assertTrue(installer.calls.isEmpty())
+    }
+
+    private fun validMdxBytes(): ByteArray {
+        val xml = "<Dictionary GeneratedByEngineVersion=\"2.0\" Encoding=\"UTF-8\" " +
+            "Title=\"Test\" Description=\"\" NumEntries=\"1\" />\u0000"
+        val body = xml.toByteArray(Charsets.UTF_16LE)
+        val checksum = Adler32().apply { update(body) }.value
+        return ByteArrayOutputStream().apply {
+            write(byteArrayOf(
+                (body.size ushr 24).toByte(), (body.size ushr 16).toByte(),
+                (body.size ushr 8).toByte(), body.size.toByte(),
+            ))
+            write(body)
+            write(byteArrayOf(
+                checksum.toByte(), (checksum ushr 8).toByte(),
+                (checksum ushr 16).toByte(), (checksum ushr 24).toByte(),
+            ))
+            // key section preamble: one block and one entry; remaining bytes are irrelevant to MdxProbe.
+            write(ByteArray(16))
+        }.toByteArray()
     }
 
     @Test

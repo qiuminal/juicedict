@@ -1,7 +1,8 @@
 # 许可与致谢（Licenses & Notices）
 
-就词典（JuiceDict）是一个纯离线的 Android StarDict 词典 App。本目录集中存放项目使用
-到的第三方数据、格式规范与参考项目的许可说明。
+就词典（JuiceDict）是一个纯离线的 Android 词典 App，支持 StarDict 与
+MDict（MDX/MDD）两种格式。本目录集中存放项目使用到的第三方数据、格式规范
+与参考项目的许可说明。
 
 ## 本项目代码
 
@@ -22,9 +23,15 @@
 | sdcv（StarDict Console Version） | 查词门面、编辑距离模糊匹配、词形还原等行为 | GPL-2.0-or-later |
 | KOReader | 词典功能与 StarDict 集成方式（仅调研） | AGPL-3.0 |
 | dictd / dictzip | `.dict.dz` 分块压缩格式规范 | GPL-2.0-or-later |
+| MDict 2.0 文件格式说明（社区反向整理） | `.mdx` / `.mdd` 区块结构、混合字节序、UTF-16LE 头部、关键字区前导 | 格式说明 |
+| pymdict（writemdict / readmdict） | MDict 写入与读取所固化的字节布局与压缩块形式 | GPL-3.0-or-later |
 
-本项目以 GPL-3.0 发布，与上述 GPL-2.0-or-later 参考项目兼容。分发时须同时遵守
-CC BY-SA 4.0 对内置词库的署名（Attribution）与相同方式共享（ShareAlike）要求。
+MDict 的 LZO1X 解压器（`engine/mdict/Lzo1x.kt`）为本项目从零编写的纯 Kotlin
+实现，未引入 minilzo、python-lzo 或任何原生（NDK/JNI）LZO 库。
+
+本项目以 GPL-3.0 发布，与上述 GPL-2.0-or-later、GPL-3.0-or-later 参考项目兼容。
+分发时须同时遵守 CC BY-SA 4.0 对内置词库的署名（Attribution）与相同方式共享
+（ShareAlike）要求。
 
 ## 开发依赖
 

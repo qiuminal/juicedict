@@ -5,11 +5,16 @@ import android.net.Uri
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.qiuminal.juicedict.engine.Article
+import com.qiuminal.juicedict.engine.DictHit
 import com.qiuminal.juicedict.engine.DictZipReader
+import com.qiuminal.juicedict.engine.DictionaryEngine
 import com.qiuminal.juicedict.engine.Ifo
 import com.qiuminal.juicedict.engine.PlainDictReader
 import com.qiuminal.juicedict.engine.StarDict
 import com.qiuminal.juicedict.engine.StarDictIndex
+import com.qiuminal.juicedict.engine.mdict.MdxDictionary
+import com.qiuminal.juicedict.engine.mdict.MdxProbe
+import com.qiuminal.juicedict.engine.mdict.MdxResourceFiles
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -18,13 +23,17 @@ import java.util.zip.GZIPInputStream
 
 /**
  * Owns the installed dictionary files (filesDir/dicts/<baseName>/...), the
- * enabled/order metadata, and the set of loaded [StarDict] instances.
+ * enabled/order metadata, and the set of loaded [DictionaryEngine] instances.
+ *
+ * 目录布局与格式无关：`dicts/<baseName>/` 里放 StarDict 的 `.ifo/.idx/.dict`，
+ * 或 MDict 的 `.mdx/.mdd`。列表与加载都按目录内容判格式，不依赖元数据里存
+ * 格式字段（老版本安装的目录也能直接识别）。
  */
 class DictionaryRepository(private val context: Context) {
 
     private val dictRoot: File = File(context.filesDir, "dicts")
     private val metaFile: File = File(context.filesDir, "dicts_meta.json")
-    private val loaded = HashMap<String, StarDict>()
+    private val loaded = HashMap<String, DictionaryEngine>()
     private val mutex = Any()
 
     val rootDir: File get() = dictRoot
@@ -112,38 +121,78 @@ class DictionaryRepository(private val context: Context) {
         val out = ArrayList<DictionaryInfo>()
         val dirs = dictRoot.listFiles { f -> f.isDirectory } ?: emptyArray()
         for (dir in dirs) {
-            val ifoFile = File(dir, dir.name + ".ifo")
-            if (!ifoFile.exists()) continue
-            val ifo = try {
-                Ifo.parse(ifoFile.readText())
-            } catch (e: Exception) {
-                continue
-            }
             val entry = meta.optJSONObject(dir.name)
-            val dictFile = when {
-                File(dir, dir.name + ".dict.dz").exists() -> File(dir, dir.name + ".dict.dz")
-                File(dir, dir.name + ".dict").exists() -> File(dir, dir.name + ".dict")
-                else -> null
-            }
-            out.add(
-                DictionaryInfo(
-                    id = dir.name,
-                    bookName = ifo.bookName.ifBlank { dir.name },
-                    baseName = dir.name,
-                    wordCount = ifo.wordCount,
-                    description = ifo.description ?: "",
-                    author = ifo.author ?: "",
-                    date = ifo.date ?: "",
-                    version = ifo.version ?: "",
-                    dictFileName = dictFile?.name ?: "",
-                    bundled = dir.name in bundledNames,
-                    enabled = entry?.optBoolean("enabled", true) ?: true,
-                    order = entry?.optInt("order", Int.MAX_VALUE) ?: Int.MAX_VALUE,
-                )
-            )
+            val info = readStarDictInfo(dir, entry, bundledNames)
+                ?: readMdxInfo(dir, entry, bundledNames)
+                ?: continue
+            out.add(info)
         }
         out.sortWith(compareBy<DictionaryInfo> { it.order }.thenBy { it.bookName })
         return out
+    }
+
+    /** Reads a StarDict directory (`<name>.ifo` + `.idx`/`.dict`), or null if it is not one. */
+    private fun readStarDictInfo(
+        dir: File,
+        entry: JSONObject?,
+        bundledNames: Set<String>,
+    ): DictionaryInfo? {
+        val ifoFile = File(dir, dir.name + ".ifo")
+        if (!ifoFile.exists()) return null
+        val ifo = try {
+            Ifo.parse(ifoFile.readText())
+        } catch (e: Exception) {
+            return null
+        }
+        val dictFile = when {
+            File(dir, dir.name + ".dict.dz").exists() -> File(dir, dir.name + ".dict.dz")
+            File(dir, dir.name + ".dict").exists() -> File(dir, dir.name + ".dict")
+            else -> null
+        }
+        return DictionaryInfo(
+            id = dir.name,
+            bookName = ifo.bookName.ifBlank { dir.name },
+            baseName = dir.name,
+            wordCount = ifo.wordCount,
+            description = ifo.description ?: "",
+            author = ifo.author ?: "",
+            date = ifo.date ?: "",
+            version = ifo.version ?: "",
+            dictFileName = dictFile?.name ?: "",
+            bundled = dir.name in bundledNames,
+            enabled = entry?.optBoolean("enabled", true) ?: true,
+            order = entry?.optInt("order", Int.MAX_VALUE) ?: Int.MAX_VALUE,
+        )
+    }
+
+    /**
+     * Reads an MDict directory (`<name>.mdx`), or null if it is not one.
+     *
+     * Uses [MdxProbe] rather than opening the dictionary: this runs on every lookup
+     * through [listEnabled], and a real open would inflate every key block.
+     */
+    private fun readMdxInfo(
+        dir: File,
+        entry: JSONObject?,
+        bundledNames: Set<String>,
+    ): DictionaryInfo? {
+        val mdxFile = File(dir, dir.name + ".mdx")
+        if (!mdxFile.isFile) return null
+        val probe = MdxProbe.read(mdxFile) ?: return null
+        return DictionaryInfo(
+            id = dir.name,
+            bookName = probe.title.ifBlank { dir.name },
+            baseName = dir.name,
+            wordCount = probe.entryCount,
+            description = probe.description,
+            author = "",
+            date = "",
+            version = "",
+            dictFileName = mdxFile.name,
+            bundled = dir.name in bundledNames,
+            enabled = entry?.optBoolean("enabled", true) ?: true,
+            order = entry?.optInt("order", Int.MAX_VALUE) ?: Int.MAX_VALUE,
+        )
     }
 
     fun listEnabled(): List<DictionaryInfo> = listDictionaries().filter { it.enabled }
@@ -165,7 +214,7 @@ class DictionaryRepository(private val context: Context) {
      * 抛任何异常——单部词典失败只让该词典不可查询（返回 null），绝不允许
      * 异常穿出到调用方协程把整个进程带崩（曾导致导入大词典后查询必闪退）。
      */
-    fun open(info: DictionaryInfo): StarDict? = synchronized(mutex) {
+    fun open(info: DictionaryInfo): DictionaryEngine? = synchronized(mutex) {
         loaded[info.id]?.let { return it }
         try {
             openLocked(info)
@@ -175,8 +224,21 @@ class DictionaryRepository(private val context: Context) {
         }
     }
 
-    private fun openLocked(info: DictionaryInfo): StarDict? {
+    /**
+     * Dispatches on what is actually in the dictionary directory.
+     *
+     * A `.ifo` means StarDict, a `.mdx` means MDict. Detection reads the filesystem
+     * rather than trusting a stored format field, so directories installed by earlier
+     * versions need no migration.
+     */
+    private fun openLocked(info: DictionaryInfo): DictionaryEngine? {
         val dir = File(dictRoot, info.baseName)
+        if (File(dir, info.baseName + ".ifo").exists()) return openStarDict(info, dir)
+        if (File(dir, info.baseName + ".mdx").isFile) return openMdx(info, dir)
+        return null
+    }
+
+    private fun openStarDict(info: DictionaryInfo, dir: File): StarDict? {
         val ifo = try {
             Ifo.parse(File(dir, info.baseName + ".ifo").readText())
         } catch (e: Exception) {
@@ -216,8 +278,26 @@ class DictionaryRepository(private val context: Context) {
         return sd
     }
 
-    /** 后台预热：加载（并在必要时构建缓存）指定词典，供后续查询直接复用。 */
-    fun prewarm(id: String) {
+    /**
+     * Opens `<base>.mdx` plus every sibling resource pack (`<base>.mdd`,
+     * `<base>.1.mdd`, …), which is how 《字源》 ships its images and 《新华字典12》
+     * its audio.
+     */
+    private fun openMdx(info: DictionaryInfo, dir: File): MdxDictionary? {
+        val mdxFile = File(dir, info.baseName + ".mdx")
+        if (!mdxFile.isFile) return null
+        val md = MdxDictionary(
+            id = info.id,
+            mdxFile = mdxFile,
+            mddFiles = MdxResourceFiles.pairsFor(dir, info.baseName),
+            title = info.bookName,
+            description = info.description,
+        )
+        loaded[info.id] = md
+        return md
+    }
+
+    /** 后台预热：加载（并在必要时构建缓存）指定词典，供后续查询直接复用。 */    fun prewarm(id: String) {
         listDictionaries().firstOrNull { it.id == id }?.let { open(it) }
     }
 
@@ -228,7 +308,7 @@ class DictionaryRepository(private val context: Context) {
 
     fun article(dictId: String, offset: Long, size: Int): Article? = synchronized(mutex) {
         try {
-            loaded[dictId]?.article(StarDict.Hit("", offset, size))
+            loaded[dictId]?.article(DictHit("", offset, size))
         } catch (t: Throwable) {
             Log.w("JuiceDict", "read article failed: $dictId@$offset", t)
             null
@@ -274,13 +354,15 @@ class DictionaryRepository(private val context: Context) {
                     name.endsWith(".idx") -> "idx"
                     name.endsWith(".ifo") -> "ifo"
                     name.endsWith(".syn") -> "syn"
+                    name.endsWith(".mdx", ignoreCase = true) -> "mdx"
+                    name.endsWith(".mdd", ignoreCase = true) -> "mdd:" + name
                     else -> return@forEach
                 }
-                val base = baseNameOf(name) ?: return@forEach
+                val base = importBaseNameOf(name, key) ?: return@forEach
                 byBase.getOrPut(base) { HashMap() }[key] = f
             }
         }
-        val copy = { doc: DocumentFile, file: File ->
+        val copy: (DocumentFile, File) -> Unit = { doc, file ->
             context.contentResolver.openInputStream(doc.uri)?.use { input ->
                 FileOutputStream(file).use { out -> input.copyTo(out) }
             } ?: throw IllegalStateException("open failed")
@@ -289,6 +371,17 @@ class DictionaryRepository(private val context: Context) {
         var failed = 0
         val importedIds = ArrayList<String>()
         for ((base, map) in byBase) {
+            val mdxDoc = map["mdx"]
+            if (mdxDoc != null) {
+                val installed = importMdxFromDocs(base, map, mdxDoc, copy)
+                if (installed) {
+                    ok++
+                    importedIds.add(base)
+                } else {
+                    failed++
+                }
+                continue
+            }
             val ifoDoc = map["ifo"] ?: continue
             val ifoText = runCatching {
                 context.contentResolver.openInputStream(ifoDoc.uri)?.use { it.readBytes() }
@@ -330,6 +423,51 @@ class DictionaryRepository(private val context: Context) {
     }
 
     /**
+     * Imports one MDict dictionary: `<base>.mdx` plus every `<base>*.mdd` resource pack
+     * found in the same folder.
+     *
+     * The `.mdx` header is probed from the first megabyte so a file that is not a
+     * dictionary at all is rejected before gigabytes are copied; the resource packs are
+     * validated only by name, since a pack carries no title of its own.
+     */
+    private fun importMdxFromDocs(
+        base: String,
+        map: Map<String, DocumentFile>,
+        mdxDoc: DocumentFile,
+        copy: (DocumentFile, File) -> Unit,
+    ): Boolean {
+        val head = runCatching {
+            context.contentResolver.openInputStream(mdxDoc.uri)?.use { input ->
+                val buf = ByteArray(MDX_PROBE_BYTES)
+                var read = 0
+                while (read < buf.size) {
+                    val n = input.read(buf, read, buf.size - read)
+                    if (n < 0) break
+                    read += n
+                }
+                buf.copyOf(read)
+            }
+        }.getOrNull() ?: return false
+        val probe = MdxProbe.readFromHead(head) ?: return false
+
+        val status = installStaged(base) { targetDir ->
+            copy(mdxDoc, File(targetDir, "$base.mdx"))
+            for ((key, doc) in map) {
+                if (!key.startsWith(MDD_KEY_PREFIX)) continue
+                val name = key.removePrefix(MDD_KEY_PREFIX)
+                if (name.isBlank()) continue
+                copy(doc, File(targetDir, name))
+            }
+        }
+        if (status.ok && probe.entryCount <= 0) {
+            // An MDict container with no entries is not a usable dictionary.
+            File(dictRoot, base).deleteRecursively()
+            return false
+        }
+        return status.ok
+    }
+
+    /**
      * 安装一部词典（Wi-Fi 传输 / 其他本地文件来源共用）：
      * [files] 的键为目标文件名（<base>.ifo 等），值为暂存区来源文件。
      * 来源文件采用「复制」而非移动——暂存区保留至 /finish 才清空，这样组内晚到的
@@ -364,16 +502,28 @@ class DictionaryRepository(private val context: Context) {
         val target = File(dictRoot, base)
         target.deleteRecursively()
         return if (incoming.renameTo(target)) {
-            InstallStatus(true, readBookName(File(target, "$base.ifo"), base), null)
+            InstallStatus(true, readBookName(target, base), null)
         } else {
             incoming.deleteRecursively()
             InstallStatus(false, null, "词典目录替换失败")
         }
     }
 
-    private fun readBookName(ifoFile: File, fallback: String): String =
-        runCatching { Ifo.parse(ifoFile.readText()).bookName }
-            .getOrNull()?.ifBlank { fallback } ?: fallback
+    /**
+     * 新装词典的显示名：StarDict 取 `.ifo` 的 bookname，MDict 取 `.mdx` 头的 title，
+     * 都没有时回退到目录名。
+     */
+    private fun readBookName(target: File, fallback: String): String {
+        val base = target.name
+        File(target, "$base.ifo").takeIf { it.exists() }?.let { ifoFile ->
+            return runCatching { Ifo.parse(ifoFile.readText()).bookName }
+                .getOrNull()?.ifBlank { fallback } ?: fallback
+        }
+        File(target, "$base.mdx").takeIf { it.isFile }?.let { mdxFile ->
+            return MdxProbe.read(mdxFile)?.title?.ifBlank { fallback } ?: fallback
+        }
+        return fallback
+    }
 
     private fun loadMeta(): JSONObject {
         if (!metaFile.exists()) return JSONObject()
@@ -403,6 +553,12 @@ class DictionaryRepository(private val context: Context) {
         const val BUNDLE_VERSION_KEY = "bundle_versions"
         const val BUNDLE_VERSION_SUFFIX = ".version"
 
+        /** 导入分组时 `byBase` 里 MDD 条目的键前缀，值带完整文件名以便原名入库。 */
+        const val MDD_KEY_PREFIX = "mdd:"
+
+        /** 判断一个 SAF 文档是不是词典，只读开头这么多字节（mdx 头远小于此）。 */
+        const val MDX_PROBE_BYTES = 1 shl 20
+
         fun baseNameOf(fileName: String): String? {
             // 双扩展名（.dict.dz / .idx.gz）整体视为一个扩展名剥离，
             // 保证 chibigenc.dict.dz 与 chibigenc.ifo 归入同一词库目录 chibigenc/。
@@ -413,6 +569,25 @@ class DictionaryRepository(private val context: Context) {
             }
             val dot = name.lastIndexOf('.')
             return if (dot > 0) name.substring(0, dot) else name
+        }
+
+        /**
+         * 一部词典的目录名。
+         *
+         * StarDict 走 [baseNameOf]；MDict 的 `.mdd` / `.1.mdd` 资源包必须先剥掉
+         * 「序数」段再取词干，否则 `新华字典12.1.mdd` 会被算成另一部词典，与
+         * `新华字典12.mdx` 分不到同一目录。
+         */
+        fun importBaseNameOf(fileName: String, key: String): String? {
+            if (!key.startsWith(MDD_KEY_PREFIX)) return baseNameOf(fileName)
+            var name = fileName
+            if (name.endsWith(".mdd", ignoreCase = true)) name = name.dropLast(4)
+            val dot = name.lastIndexOf('.')
+            if (dot > 0) {
+                val ordinal = name.substring(dot + 1)
+                if (ordinal.isNotEmpty() && ordinal.all { it.isDigit() }) name = name.substring(0, dot)
+            }
+            return name
         }
     }
 }
