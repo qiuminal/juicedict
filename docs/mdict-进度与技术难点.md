@@ -265,7 +265,9 @@ resValue("string", "app_name", "就词典 Debug")
 
 ### 5.4 v0.1.5 发布
 
-`versionCode = 8` / `versionName = "0.1.5"`，发布工作流 `.github/workflows/release-v0.1.5.yml`（仓库唯一发布工作流）。Release 已创建并核实：tag `v0.1.5`、target `370cd041a47312593126b9e2bc1771fa528f94bf`、附件 `JuiceDict-v0.1.5-release.apk`（14,428,884 字节）、非 draft、非 prerelease。工作流 9 个步骤全绿，第 8 步 `apksigner verify --print-certs` 断言签名证书 SHA-256 与历史证书一致。
+`versionCode = 8` / `versionName = "0.1.5"`，发布工作流 `.github/workflows/release-v0.1.5.yml`（仓库唯一发布工作流）。Release 已创建并核实：tag `v0.1.5`、`published_at=2026-10-06T15:05:33Z`、target `370cd041a47312593126b9e2bc1771fa528f94bf`、附件 `JuiceDict-v0.1.5-release.apk`（14,428,884 字节）、非 draft、非 prerelease。工作流 9 个步骤全绿，第 8 步 `apksigner verify --print-certs` 断言签名证书 SHA-256 与历史证书一致。
+
+> 日期返工记录：首次发版把日期写成 `2026-09-17`（凭推测，未查平台记录），该错误日期同时进入了 `release-notes/v0.1.5.md`、`CHANGELOG-INTERNAL.md`、`strings.xml` 的 `changelog_content` 与 Release 正文。事后查 `GET /releases/tags/v0.1.5` 得真实 `published_at=2026-10-06T15:05:33Z`，四处已统一改为 `2026-10-06`，并按 RELEASE.md「补丁换源」在**不改版本号与签名**的前提下替换了同名附件（新 SHA-256 `ffa400d7…0b41`）。RELEASE.md 已新增「核心原则 6：发布日期以平台记录为准」以防复发。
 
 发布过程中暴露一个真实缺陷：`engine/StarDict.kt` 未随 MDict 提交上传，仓库里仍是 MDict 之前的旧类（自带 `data class Hit`、只实现 `AutoCloseable`、没有 `lookupSmart`），而 `DictionaryRepository` 已按 `DictionaryEngine?` 分派，导致 main 编译失败：
 

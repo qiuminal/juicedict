@@ -90,6 +90,20 @@ GitHub Actions Secrets 应配置：
 3. **日志与版本号需用户确认**：版本号（versionCode / versionName）与对外日志条目以用户确认为准，不得擅自新增条目或改动措辞。
 4. **交付必须给出完整路径**：提交产物、报告结果时写出可点击的完整文件路径，不能让用户自己去找。
 5. **不虚构验证结果**：没有真机/实测证据时明确说明"未验证"，禁止用"构建通过"冒充"功能验证通过"。
+6. **发布日期以平台记录为准**：版本日期只能取自 `GET /releases/tags/vX.Y.Z` 的 `published_at`，按本机时区（UTC+8）折算成 `YYYY-MM-DD`，**不得凭印象或推测填写**。
+   - 反面示例：v0.1.5 实际发布于 `2026-10-06T15:05:33Z`，却被写成 `2026-09-17`，并且这个错误日期被同时写进 `release-notes/v0.1.5.md`、`CHANGELOG-INTERNAL.md`、`strings.xml` 的 `changelog_content`，随 APK 发到了客户端「关于 → 更新日志」和 Release 正文，只能靠换源返工。
+   - 正确顺序：**先查 `published_at`，再写日期**。若确需在发布前落版本号，日期位置先留空或写占位符，发布成功后回填；绝不在拿到平台时间之前编造一个具体日期。
+   - 同一次发版涉及的所有位置（对内日志、对外日志、`changelog_content`、Release 正文）必须使用同一个日期，并在发布后校验逐字一致。
+
+步骤 8 的校验项必须逐条实测，其中「发布日期」一项单独核对：
+
+```powershell
+# 平台记录的发布时间（UTC），必须以此为准
+$r = Invoke-RestMethod -Headers $h "https://api.github.com/repos/qiuminal/juicedict/releases/tags/vX.Y.Z"
+$r.published_at
+```
+
+把结果按 UTC+8 折算为 `YYYY-MM-DD` 后，与 `release-notes/vX.Y.Z.md`、`CHANGELOG-INTERNAL.md`、`strings.xml` 的 `changelog_content`、Release 正文四处逐一比对；任意一处不同即视为发版未完成。
 
 ## 发布流程
 
@@ -106,6 +120,7 @@ GitHub Actions Secrets 应配置：
    - `GET /releases/latest` 指向新 tag；
    - 附件名为 `JuiceDict-vX.Y.Z-release.apk`；
    - 下载附件实测：`aapt2 dump badging` 的 versionCode/versionName 正确，`apksigner verify --print-certs` 证书等于历史证书，文件 SHA-256 等于 Release 记录的 digest；
+   - **发布日期**：`published_at` 折算后的日期与上述四处文案一致（见「核心原则 6」）；
    - Release 正文等于用户确认的文案。
 9. **补丁换源**：对已发布 Release 修复时保持版本号与签名不变，仅替换同名附件，并在正文追加简短备注。
 
