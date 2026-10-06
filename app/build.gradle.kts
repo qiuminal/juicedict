@@ -44,8 +44,8 @@ android {
         applicationId = "com.qiuminal.juicedict"
         minSdk = 24
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.1.4"
+        versionCode = 8
+        versionName = "0.1.5"
     }
 
     signingConfigs {
@@ -74,6 +74,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            // 与正式版共存：debug 用独立 applicationId，可同时安装、数据互不干扰。
+            // namespace / 源码包名不变，只有安装标识不同。
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            resValue("string", "app_name", "就词典 Debug")
+        }
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.findByName("release")
@@ -117,4 +124,61 @@ dependencies {
 // 百万级词条索引的全量测试（BigEcdictTest）需要较大堆
 tasks.withType<Test>().configureEach {
     maxHeapSize = "1g"
+}
+
+/**
+ * 用真实 MDX/MDD 词典验证 mdict 解析器的端到端工具，不属于常规构建：
+ *
+ *   ./gradlew verifyMdict -Pmdict.dir="E:/dictionary/MDict"
+ *
+ * 之所以做成 JavaExec 而不是标准 JUnit 测试，是因为测试语料在仓库之外的大文件上，
+ * 不适合随 CI 一起跑。
+ */
+tasks.register<JavaExec>("verifyMdict") {
+    group = "verification"
+    description = "用真实 MDX/MDD 词典跑一遍 MDict 解析器的端到端校验。"
+    val dirs = (findProperty("mdict.dir") as String?)
+        ?.split(File.pathSeparator, ",")
+        ?.filter { it.isNotBlank() }
+        ?: emptyList()
+    if (dirs.isEmpty()) {
+        throw GradleException(
+            "请用 -Pmdict.dir=<词典目录> 指定测试语料目录（可用 ',' 或系统路径分隔符分隔多个）。",
+        )
+    }
+    dependsOn("compileDebugUnitTestKotlin")
+    classpath = files(
+        layout.buildDirectory.dir("tmp/kotlin-classes/debugUnitTest"),
+        layout.buildDirectory.dir("tmp/kotlin-classes/debug"),
+        android.bootClasspath,
+    ) + configurations.getByName("debugUnitTestRuntimeClasspath")
+    mainClass.set("com.qiuminal.juicedict.engine.mdict.MdxVerify")
+    args(dirs)
+}
+
+/**
+ * 引擎层冒烟：对每部真实词典走一遍「查词 → 渲染 → 跟随 @@@LINK → 取 .mdd 资源」。
+ *
+ *   ./gradlew smokeMdict -Pmdict.dir="E:/dictionary/MDict"
+ */
+tasks.register<JavaExec>("smokeMdict") {
+    group = "verification"
+    description = "用真实 MDX/MDD 词典跑一遍 MDict 引擎的查词与渲染链路。"
+    val dirs = (findProperty("mdict.dir") as String?)
+        ?.split(File.pathSeparator, ",")
+        ?.filter { it.isNotBlank() }
+        ?: emptyList()
+    if (dirs.isEmpty()) {
+        throw GradleException(
+            "请用 -Pmdict.dir=<词典目录> 指定测试语料目录（可用 ',' 或系统路径分隔符分隔多个）。",
+        )
+    }
+    dependsOn("compileDebugUnitTestKotlin")
+    classpath = files(
+        layout.buildDirectory.dir("tmp/kotlin-classes/debugUnitTest"),
+        layout.buildDirectory.dir("tmp/kotlin-classes/debug"),
+        android.bootClasspath,
+    ) + configurations.getByName("debugUnitTestRuntimeClasspath")
+    mainClass.set("com.qiuminal.juicedict.engine.mdict.MdxSmoke")
+    args(dirs)
 }

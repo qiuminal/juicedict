@@ -1,4 +1,37 @@
-## 0.1.4（2026-09-16）
+## 0.1.5（2026-09-17）
+
+### MDict 支持
+
+- 新增 MDX/MDD 词典格式支持：`MdxDictionary` 实现既有 `DictionaryEngine` 契约，沿用 `(offset, size)` 地址模型，未引入参考文档要求的统一抽象层。主源码 14 个文件、2166 行，全在 `engine/mdict/` 下。
+- 二进制解析覆盖 MDX 2.0 的 header（UTF-16LE 属性区）、关键字区前导（adler32 + 块表）、record 区前导（4×u64be）；压缩类型支持 raw 与 zlib；LZO1X 已实现并有 fixture 与差分模糊测试，但语料中 LZO 块数为 0，未经真实词典验证。
+- 排序与查找规则由 header 驱动：全部 7 部语料 MDX 声明 `StripKey=Yes`，全部 8 部 MDD 声明 `StripKey=No`，`KeyCaseSensitive=No`；属性名大小写不一致（`StripKey` / `Stripkey`），解析按大小写无关处理。
+- 链接处理：`@@@LINK` 重定向与 `entry://` 内部跳转均改写为应用内 `juice://lookup/` 方案，保留 `#frag` 片段。普查样本 718,618 条链接。
+- 多卷资源：Wi‑Fi 导入中 `<base>.1.mdd`、`<base>.2.mdd` 与同名 `.mdx` 归为同一词典组。
+- 已知限制（发布说明中不体现，仅供维护）：MDD 中的图片/音频尚未渲染到正文 UI；加密词典仅识别并友好报错，未实现解密；MDict 1.2 未实现；GBK/Big5 编码分支未经真实文件验证。
+
+### Wi‑Fi 导入 MDict 修复
+
+- 现象：真机通过 Wi‑Fi 导入 `.mdx` 时提示「格式不支持」，无法导入。
+- 根因：手机端上传页面 `app/src/main/assets/wifi/import.html` 的扩展名白名单 `OK_EXT` 只有 `.ifo/.idx/.idx.gz/.dict/.dict.dz/.syn`，在发起上传请求之前就把 `.mdx/.mdd` 判为不支持；后端 `WifiImportEngine` 本身已能接收 MDict。
+- 修复一：白名单加入 `.mdx/.mdd`，页面说明同步为「StarDict（.ifo / .idx / .dict）或 MDict（.mdx / .mdd）」。
+- 修复二：上传分为两个阶段，`.mdx` 与 `.dict/.dict.dz` 放在最后阶段上传，确保同一词典的 `.mdd` 与元数据先落地；仍保持最多 3 路上传并发。
+- 修复三：`WifiImportEngine` 在只有 MDD 暂存时不再误判为缺失元数据的 StarDict，MDX 到达时一次性收集全部 `.mdd` 部件；孤立 MDD 在收尾时报「缺少 .mdx 文件」。
+- 新增回归测试：`app/src/test/js/wifi-import.test.js`（无依赖 Node 测试，覆盖 MDX/MDD 接纳、MDD 先于 MDX、StarDict 主体顺序、三路并发与 `/finish` 单次调用，3 项通过）；`WifiImportEngineTest` 补充多部件与孤立 MDD 用例（25 项通过）。
+
+### 词典管理标签
+
+- 导入的词典不再显示「已导入」，改为显示实际格式：主文件为 `.mdx` 显示「MDict」，其余显示「StarDict」；内置词典继续显示「内置」。
+- 实现方式：`DictionaryAdapter` 依据 `DictionaryInfo.dictFileName`（由 `readStarDictInfo` / `readMdxInfo` 在扫描时写入）判定，不新增字段、不迁移存储。
+
+### 工程与验证
+
+- 版本号更新为 `versionCode = 8`、`versionName = "0.1.5"`。
+- 本地验证：`testDebugUnitTest` 全部通过；`assembleDebug` 通过；Node 回归测试 3/3 通过。
+- 真机验证（ADB serial `52ce1128`，`23127PN0CC`）：按 `xinhua.1.mdd → xinhua.mdd → xinhua.mdx` 顺序上传真实《新华字典12》（5,547,152B / 9,954,875B / 963,072B），两个 MDD 返回 `import:null`，MDX 返回 `ok:true`，`/finish` 返回 `imported=[]`、`incomplete=[]`；词典管理页显示 `xinhua` 15776 词条、`上古擬音 (Baxter-Sagart)` 12153 词条，标签均为「MDict」，内置 `CC-CEDICT` 显示「内置」。
+- 发布工作流更新为 `release-v0.1.5.yml`（沿用唯一工作流规范，保留 workflow_dispatch、无 schedule、不使用 `android-actions/setup-android`）。
+- 对外精简日志见 `release-notes/v0.1.5.md`，与客户端「关于 → 更新日志」保持核心内容一致。
+
+
 
 ### 词典查询
 

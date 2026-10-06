@@ -47,7 +47,7 @@
   <svg viewBox="0 0 1024 1024" fill="#3949AB" aria-hidden="true"><path d="M974.456 775.904H660.648v77.04l66.064 61.648V930H297.288v-15.408l66.064-61.648v-77.04H49.544C22.176 775.904 0 755.208 0 729.68V113.328C0 87.792 22.176 67.096 49.544 67.096h924.904c27.368 0 49.544 20.688 49.544 46.232V729.68c.008 25.528-22.168 46.224-49.536 46.224M957.936 128.728H66.064v523.904h891.872V128.728z"/><path d="M737.712 314.624C679.456 265.376 599.888 235 512.096 235s-167.352 30.368-225.592 79.624l-29.864-33.352C323.232 226.6 413.112 193 512.096 193c99 0 188.856 33.6 255.464 88.272l-29.848 33.352zM512.096 298c71.016 0 135.096 25.664 180.68 66.816l-30.232 33.752c-36.976-35.856-90.584-58.544-150.448-58.544-59.864 0-113.464 22.688-150.456 58.544l-30.216-33.752C377.016 323.664 441.072 298 512.096 298m0 105.008c43.168 0 81.272 18.4 104.768 46.568l-26.672 29.792c-17.624-20.808-46.008-34.352-78.096-34.352-32.064 0-60.44 13.544-78.096 34.352l-26.664-29.792c23.472-28.168 61.592-46.568 104.76-46.568m0 104.992c26.792 0 48.488 18.808 48.488 42.016 0 23.2-21.696 41.984-48.488 41.984-26.768 0-48.464-18.784-48.464-41.984 0-23.208 21.696-42.016 48.464-42.016"/></svg>
   <div>
     <h1>就词典 · Wi-Fi 传词典</h1>
-    <p>把 StarDict 词典文件（.ifo / .idx / .dict 等）或整个词典文件夹拖到下面</p>
+    <p>把 StarDict（.ifo / .idx / .dict）或 MDict（.mdx / .mdd）词典文件及文件夹拖到下面</p>
   </div>
   <span class="dot"><i></i>已连接</span>
 </header>
@@ -71,7 +71,7 @@
 <script>
 (function(){
   'use strict';
-  var OK_EXT=/\.(ifo|idx|idx\.gz|dict|dict\.dz|syn)$/i;
+  var OK_EXT=/\.(ifo|idx|idx\.gz|dict|dict\.dz|syn|mdx|mdd)$/i;
   var MAX=2*1024*1024*1024;
   var drop=document.getElementById('drop'),input=document.getElementById('fileInput'),
       pick=document.getElementById('pick'),recList=document.getElementById('recList'),
@@ -197,16 +197,21 @@
   }
   function run(items){
     busy=true;
-    var idx=0;
-    function next(){
-      if(idx>=items.length)return Promise.resolve();
-      var i=idx++,it=items[i];
-      var rec=addRec(it.file.name,it.path,it.file.size);
-      return upload(it,rec).then(next);
+    var rows=items.map(function(it){return addRec(it.file.name,it.path,it.file.size)});
+    function batch(indices){
+      var idx=0;
+      function next(){
+        if(idx>=indices.length)return Promise.resolve();
+        var i=indices[idx++];
+        return upload(items[i],rows[i]).then(next);
+      }
+      var workers=[];
+      for(var w=0;w<Math.min(3,indices.length);w++)workers.push(next());
+      return Promise.all(workers);
     }
-    var workers=[];
-    for(var w=0;w<Math.min(3,items.length);w++)workers.push(next());
-    return Promise.all(workers).then(function(){
+    var companions=[],bodies=[];
+    items.forEach(function(it,i){(isDictBody(it.path)?bodies:companions).push(i)});
+    return batch(companions).then(function(){return batch(bodies)}).then(function(){
       return fetch('/finish',{method:'POST'}).then(function(r){return r.json()});
     }).then(function(j){
       (j.imported||[]).forEach(addDict);
@@ -217,7 +222,7 @@
   }
 
   // ---------- 统一入口 ----------
-  function isDictBody(p){return /\.(dict|dict\.dz)$/i.test(p)}
+  function isDictBody(p){return /\.(dict|dict\.dz|mdx)$/i.test(p)}
   function acceptItems(items){
     if(busy||!items.length)return;
     var good=[];
@@ -234,9 +239,6 @@
       }
       good.push(it);
     });
-    // .dict/.dict.dz 排到最后上传：一部词典的其余文件先到齐，
-    // 大文件到达时整组立即完整并一次性导入
-    good.sort(function(a,b){return (isDictBody(a.path)?1:0)-(isDictBody(b.path)?1:0)});
     if(good.length)run(good);
   }
 

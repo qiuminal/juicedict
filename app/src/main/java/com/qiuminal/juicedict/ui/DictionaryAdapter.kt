@@ -27,7 +27,11 @@ class DictionaryAdapter(
         val ctx = b.root.context
         b.bookName.text = info.bookName
         b.metaText.text = ctx.getString(R.string.word_count, info.wordCount)
-        b.statusText.text = ctx.getString(if (info.bundled) R.string.bundled_badge else R.string.imported_badge)
+        b.statusText.text = when {
+            info.bundled -> ctx.getString(R.string.bundled_badge)
+            info.dictFileName.endsWith(".mdx", ignoreCase = true) -> ctx.getString(R.string.mdict_badge)
+            else -> ctx.getString(R.string.stardict_badge)
+        }
         b.enabledSwitch.setOnCheckedChangeListener(null)
         b.enabledSwitch.isChecked = info.enabled
         b.enabledSwitch.setOnCheckedChangeListener { _, checked -> onToggle(info, checked) }

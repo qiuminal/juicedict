@@ -1,6 +1,7 @@
 package com.qiuminal.juicedict.wifi
 
 import com.qiuminal.juicedict.engine.Ifo
+import com.qiuminal.juicedict.engine.mdict.MdxProbe
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -29,10 +30,36 @@ class WifiImportEngine(
 
     /** 上传文件在词典组内的角色；suffix 为规范（小写）扩展名。 */
     enum class DictFileRole(val suffix: String) {
-        IFO(".ifo"), IDX(".idx"), IDX_GZ(".idx.gz"), DICT(".dict"), DICT_DZ(".dict.dz"), SYN(".syn");
+        IFO(".ifo"),
+        IDX(".idx"),
+        IDX_GZ(".idx.gz"),
+        DICT(".dict"),
+        DICT_DZ(".dict.dz"),
+        SYN(".syn"),
+        MDX(".mdx"),
+        MDD(".mdd"),
+        ;
 
         /** 从文件名剥离角色扩展名后的词干（保留原大小写）。 */
         fun stemOf(fileName: String): String = fileName.substring(0, fileName.length - suffix.length)
+
+        /**
+         * 该文件所属词典的词干。
+         *
+         * MDict 的词库名取自 `.mdx`，而资源包可能是带序号的 `<base>.1.mdd`、
+         * `<base>.2.mdd`；若直接用 [stemOf]，`新华字典12.1.mdd` 会被算成另一部
+         * 词典而分不到同一组。这里对 MDD 额外剥掉纯数字序号段。
+         */
+        fun baseStemOf(fileName: String): String {
+            var stem = stemOf(fileName)
+            if (this != MDD) return stem
+            val dot = stem.lastIndexOf('.')
+            if (dot > 0) {
+                val ordinal = stem.substring(dot + 1)
+                if (ordinal.isNotEmpty() && ordinal.all { it.isDigit() }) stem = stem.substring(0, dot)
+            }
+            return stem
+        }
 
         companion object {
             fun of(fileName: String): DictFileRole? {
@@ -45,6 +72,8 @@ class WifiImportEngine(
                     n.endsWith(IDX.suffix) -> IDX
                     n.endsWith(DICT.suffix) -> DICT
                     n.endsWith(SYN.suffix) -> SYN
+                    n.endsWith(MDX.suffix) -> MDX
+                    n.endsWith(MDD.suffix) -> MDD
                     else -> null
                 }
             }
@@ -83,9 +112,9 @@ class WifiImportEngine(
             return StoreOutcome.Rejected("文件过大（单文件上限 2GB）")
         }
         val role = DictFileRole.of(normalized.fileName) ?: return StoreOutcome.Rejected(
-            "不支持的文件类型（仅支持 StarDict 词典文件）"
+            "不支持的文件类型（仅支持 StarDict / MDict 词典文件）"
         )
-        val stem = role.stemOf(normalized.fileName)
+        val stem = role.baseStemOf(normalized.fileName)
         if (stem.isEmpty() || stem.length > MAX_STEM_LEN || stem.startsWith(".")) {
             return StoreOutcome.Rejected("文件名不合法")
         }
@@ -122,7 +151,7 @@ class WifiImportEngine(
         val seen = HashSet<String>()
         walkStagedFiles { relDir, name ->
             val role = DictFileRole.of(name) ?: return@walkStagedFiles
-            val stem = role.stemOf(name)
+            val stem = role.baseStemOf(name)
             if (!seen.add("$relDir|$stem")) return@walkStagedFiles
             val info = groups.getOrPut("$relDir|$stem") { GroupInfo() }
             when (info.state) {
@@ -130,21 +159,37 @@ class WifiImportEngine(
                 GroupState.FAILED -> incomplete.add(IncompleteRecord(stem, info.reason ?: "导入失败"))
                 GroupState.PENDING -> {
                     val group = collectGroup(relDir, stem)
-                    val ifoFile = group?.files?.get(DictFileRole.IFO)
-                    if (ifoFile == null) {
-                        incomplete.add(IncompleteRecord(stem, "缺少 .ifo 文件"))
-                    } else {
-                        val hasIdx = group.files.containsKey(DictFileRole.IDX) ||
-                            group.files.containsKey(DictFileRole.IDX_GZ)
-                        val hasDict = group.files.containsKey(DictFileRole.DICT) ||
-                            group.files.containsKey(DictFileRole.DICT_DZ)
-                        if (!hasIdx || !hasDict) {
-                            val missing = if (!hasIdx) ".idx/.idx.gz" else ".dict/.dict.dz"
-                            incomplete.add(IncompleteRecord(stem, "缺少 $missing 数据文件"))
-                        } else {
+                    when {
+                        group == null -> Unit
+
+                        // MDD may arrive before its MDX; don't install a resource-only directory.
+                        group.mddFiles.isNotEmpty() && !group.files.containsKey(DictFileRole.MDX) ->
+                            incomplete.add(IncompleteRecord(stem, "缺少 .mdx 文件"))
+
+                        // MDict：只要 .mdx 到场就可导入，资源包缺失不影响查词。
+                        group.files.containsKey(DictFileRole.MDX) -> {
                             maybeImport(relDir, stem)?.let { rec ->
                                 if (rec.ok) imported.add(rec)
                                 else incomplete.add(IncompleteRecord(rec.bookName, rec.reason ?: "导入失败"))
+                            }
+                        }
+
+                        !group.files.containsKey(DictFileRole.IFO) ->
+                            incomplete.add(IncompleteRecord(stem, "缺少 .ifo 文件"))
+
+                        else -> {
+                            val hasIdx = group.files.containsKey(DictFileRole.IDX) ||
+                                group.files.containsKey(DictFileRole.IDX_GZ)
+                            val hasDict = group.files.containsKey(DictFileRole.DICT) ||
+                                group.files.containsKey(DictFileRole.DICT_DZ)
+                            if (!hasIdx || !hasDict) {
+                                val missing = if (!hasIdx) ".idx/.idx.gz" else ".dict/.dict.dz"
+                                incomplete.add(IncompleteRecord(stem, "缺少 $missing 数据文件"))
+                            } else {
+                                maybeImport(relDir, stem)?.let { rec ->
+                                    if (rec.ok) imported.add(rec)
+                                    else incomplete.add(IncompleteRecord(rec.bookName, rec.reason ?: "导入失败"))
+                                }
                             }
                         }
                     }
@@ -163,6 +208,58 @@ class WifiImportEngine(
         // 已导入/已失败的组若重新收到文件（用户重新拖入），重置为待定再判定一次
         if (info.state != GroupState.PENDING) info.state = GroupState.PENDING
         val group = collectGroup(dirRel, stem) ?: return null
+        group.files[DictFileRole.MDX]?.let { return importMdx(stem, info, group, it) }
+        if (group.mddFiles.isNotEmpty()) return null
+        return importStarDict(stem, info, group)
+    }
+
+    /**
+     * MDict 组：`.mdx` 是词典本体，`.mdd` 系列是资源包。
+     *
+     * 判据是 `.mdx` 自身能否解出头部——这比「文件齐不齐」更可靠，也能在只上传了
+     * `.mdd` 的情况下给出「缺少 .mdx」而不是含糊失败。
+     */
+    private fun importMdx(
+        stem: String,
+        info: GroupInfo,
+        group: StagedGroup,
+        mdxFile: File,
+    ): ImportRecord {
+        val probe = MdxProbe.read(mdxFile)
+        if (probe == null || probe.entryCount <= 0) {
+            info.state = GroupState.FAILED
+            info.reason = "无法解析 .mdx 头部或词条数为 0"
+            emit(false, "《$stem》导入失败：${info.reason}")
+            return ImportRecord(stem, stem, false, info.reason)
+        }
+
+        val files = LinkedHashMap<String, File>()
+        files[stem + DictFileRole.MDX.suffix] = mdxFile
+        for (mdd in group.mddFiles) {
+            // 按原名入库：<base>.mdd 与 <base>.1.mdd 都要保留序号，否则相互覆盖。
+            files[mdd.name] = mdd
+        }
+
+        val result = try {
+            installer(stem, files)
+        } catch (e: Exception) {
+            InstallResult(false, null, e.message ?: "安装异常")
+        }
+        return if (result.ok) {
+            info.state = GroupState.IMPORTED
+            info.reason = null
+            val bookName = result.bookName?.ifBlank { stem } ?: stem
+            emit(true, "已导入《$bookName》")
+            ImportRecord(stem, bookName, true, null)
+        } else {
+            info.state = GroupState.FAILED
+            info.reason = result.error ?: "未知错误"
+            emit(false, "《$stem》导入失败：${info.reason}")
+            ImportRecord(stem, stem, false, info.reason)
+        }
+    }
+
+    private fun importStarDict(stem: String, info: GroupInfo, group: StagedGroup): ImportRecord? {
         val ifoFile = group.files[DictFileRole.IFO] ?: return null
         val idx = group.files[DictFileRole.IDX] ?: group.files[DictFileRole.IDX_GZ] ?: return null
         val dict = group.files[DictFileRole.DICT] ?: group.files[DictFileRole.DICT_DZ] ?: return null
@@ -213,14 +310,21 @@ class WifiImportEngine(
         val dir = if (dirRel.isEmpty()) stagingRoot else File(stagingRoot, dirRel)
         val names = dir.list() ?: return null
         val map = HashMap<DictFileRole, File>()
+        val mdds = ArrayList<File>()
         for (n in names) {
             val f = File(dir, n)
             if (!f.isFile) continue
             val role = DictFileRole.of(n) ?: continue
-            if (role.stemOf(n) != stem) continue
-            if (!map.containsKey(role)) map[role] = f
+            if (role.baseStemOf(n) != stem) continue
+            // 资源包可以有多个（<base>.mdd、<base>.1.mdd…），全部收集；
+            // 其余角色每个只保留第一个。
+            if (role == DictFileRole.MDD) {
+                mdds.add(f)
+            } else if (!map.containsKey(role)) {
+                map[role] = f
+            }
         }
-        return if (map.isEmpty()) null else StagedGroup(map)
+        return if (map.isEmpty() && mdds.isEmpty()) null else StagedGroup(map, mdds)
     }
 
     private fun walkStagedFiles(block: (relDir: String, name: String) -> Unit) {
@@ -261,7 +365,7 @@ class WifiImportEngine(
         return NormalizedPath(segs.joinToString("/"))
     }
 
-    private class StagedGroup(val files: Map<DictFileRole, File>)
+    private class StagedGroup(val files: Map<DictFileRole, File>, val mddFiles: List<File>)
 
     companion object {
         const val MAX_FILE_BYTES = 2L * 1024 * 1024 * 1024 // 单文件 2GB
