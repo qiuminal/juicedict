@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import com.qiuminal.juicedict.data.DictionaryRepository
 import com.qiuminal.juicedict.data.LookupEngine
+import com.qiuminal.juicedict.engine.mdict.MdxLog
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +31,8 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // MDict 解析器是纯 JVM 模块，不直接依赖 android.util.Log，日志经此转发到 logcat。
+        MdxLog.sink = { tag, message -> Log.w(tag, message) }
         repository = DictionaryRepository(this)
         lookupEngine = LookupEngine(repository)
         // Install the bundled dictionary in the background.

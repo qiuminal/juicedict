@@ -14,3 +14,4 @@ keystore.properties
 /build-artifacts
 /app/build
 /internal-dicts
+/.probe

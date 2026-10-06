@@ -10,17 +10,15 @@ package com.qiuminal.juicedict.engine
  * 保证查询速度；乱序、缺字、错字都能命中。
  */
 class StarDict(
-    val id: String,
+    override val id: String,
     val ifo: Ifo,
     private val index: StarDictIndex,
     private val data: DictDataReader,
-) : AutoCloseable {
+) : DictionaryEngine {
 
-    data class Hit(val word: String, val offset: Long, val size: Int)
+    override val wordCount: Int get() = index.size
 
-    val wordCount: Int get() = index.size
-
-    fun lookupExact(query: String, limit: Int = 30): List<Hit> {
+    fun lookupExact(query: String, limit: Int = 30): List<DictHit> {
         val q = query.trim()
         if (q.isEmpty()) return emptyList()
         val matches = index.exactMatches(q, limit * 2)
@@ -30,22 +28,22 @@ class StarDict(
         for (i in matches) {
             if (index.wordAt(i) == q) exact.add(i) else variants.add(i)
         }
-        val head = (exact + variants).take(limit).map { Hit(index.wordAt(it), index.offsetAt(it), index.sizeAt(it)) }
+        val head = (exact + variants).take(limit).map { DictHit(index.wordAt(it), index.offsetAt(it), index.sizeAt(it)) }
         if (head.isNotEmpty()) return head
         return lookupSynExact(q, limit)
     }
 
-    fun lookupPrefix(query: String, limit: Int = 100): List<Hit> {
+    fun lookupPrefix(query: String, limit: Int = 100): List<DictHit> {
         val q = query.trim()
         if (q.isEmpty()) return emptyList()
-        return index.prefixMatches(q, limit).map { Hit(index.wordAt(it), index.offsetAt(it), index.sizeAt(it)) }
+        return index.prefixMatches(q, limit).map { DictHit(index.wordAt(it), index.offsetAt(it), index.sizeAt(it)) }
     }
 
     /**
      * 智能查询：前缀优先（前缀命中天然包含精确命中，且字典序下更短的精确词排最前），
      * 前缀无结果时自动 fallback 到模糊查询，用户无感。
      */
-    fun lookupSmart(query: String, limit: Int = 60): List<Hit> {
+    override fun lookupSmart(query: String, limit: Int): List<DictHit> {
         val q = query.trim()
         if (q.isEmpty()) return emptyList()
         val prefix = lookupPrefix(q, limit)
@@ -63,10 +61,10 @@ class StarDict(
      * 简体别名（如“三军 -> 三軍”）由 `.syn` 提供。命中时词条按用户输入
      * 的别名显示，内容指向目标词条。
      */
-    fun lookupSynExact(query: String, limit: Int = 30): List<Hit> {
+    fun lookupSynExact(query: String, limit: Int = 30): List<DictHit> {
         val q = query.trim()
         if (q.isEmpty()) return emptyList()
-        return index.synExactMatches(q, limit).map { Hit(q, index.offsetAt(it), index.sizeAt(it)) }
+        return index.synExactMatches(q, limit).map { DictHit(q, index.offsetAt(it), index.sizeAt(it)) }
     }
 
     /**
@@ -75,7 +73,7 @@ class StarDict(
      * 因此不会命中——距离 1 不小于平均长度 1）。长度与距离都按 Unicode 码位
      * 计算，代理对（生僻扩展字）整体算 1 个字符。扫描零分配。
      */
-    fun lookupFuzzy(query: String, limit: Int = 20): List<Hit> {
+    fun lookupFuzzy(query: String, limit: Int = 20): List<DictHit> {
         val q = query.trim()
         if (q.isEmpty()) return emptyList()
 
@@ -121,7 +119,7 @@ class StarDict(
             if (sx != sy) return@Comparator sy.compareTo(sx)
             stardictCompare(wx, wy)
         })
-        return best.take(limit).map { Hit(index.wordAt(it.second), index.offsetAt(it.second), index.sizeAt(it.second)) }
+        return best.take(limit).map { DictHit(index.wordAt(it.second), index.offsetAt(it.second), index.sizeAt(it.second)) }
     }
 
     /**
@@ -132,7 +130,7 @@ class StarDict(
      * 纯中文且无空格的漏查不做无谓扫描。比较走字符级去空格（零分配），
      * 仅在进入模糊窗口的少量候选上构造去空格字符串，兜底开销很小。
      */
-    fun lookupSpaceFree(query: String, limit: Int = 60): List<Hit> {
+    fun lookupSpaceFree(query: String, limit: Int = 60): List<DictHit> {
         val q = query.trim()
         if (q.isEmpty()) return emptyList()
         val sfq = q.filterNot { it == ' ' }
@@ -182,8 +180,8 @@ class StarDict(
             }
         }
 
-        fun hitsOf(searchIndexes: List<Int>): List<Hit> =
-            searchIndexes.map { Hit(index.wordAt(it), index.offsetAt(it), index.sizeAt(it)) }
+        fun hitsOf(searchIndexes: List<Int>): List<DictHit> =
+            searchIndexes.map { DictHit(index.wordAt(it), index.offsetAt(it), index.sizeAt(it)) }
 
         if (exact.isNotEmpty()) return hitsOf(exact.take(limit))
         if (prefix.isNotEmpty()) return hitsOf(prefix.take(limit))
@@ -201,7 +199,7 @@ class StarDict(
             stardictCompare(index.wordAt(x.searchIndex), index.wordAt(y.searchIndex))
         })
         return fuzzy.take(fuzzyLimit).map {
-            Hit(index.wordAt(it.searchIndex), index.offsetAt(it.searchIndex), index.sizeAt(it.searchIndex))
+            DictHit(index.wordAt(it.searchIndex), index.offsetAt(it.searchIndex), index.sizeAt(it.searchIndex))
         }
     }
 
@@ -286,7 +284,7 @@ class StarDict(
     private fun foldAsciiCp(cp: Int): Int =
         if (cp in 'A'.code..'Z'.code) cp + 32 else cp
 
-    fun article(hit: Hit): Article {
+    override fun article(hit: DictHit): Article {
         val raw = data.read(hit.offset, hit.size)
         return Article(hit.word, ifo.sameTypeSequence, ArticleParser.parse(ifo.sameTypeSequence, raw))
     }
