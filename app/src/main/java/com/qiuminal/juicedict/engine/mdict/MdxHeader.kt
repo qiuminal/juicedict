@@ -54,7 +54,13 @@ internal class MdxHeader(
     val isEncrypted: Boolean get() = encrypted != 0
 
     val title: String
-        get() = attributes["title"]?.trim().orEmpty()
+        get() {
+            val t = attributes["title"]?.trim().orEmpty()
+            // MdxBuilder stamps this placeholder when the author left Title blank
+            // (现代汉语词典第5版 ships it verbatim). Treat it as "no title" so callers
+            // fall back to the file name instead of showing the placeholder.
+            return if (t.equals(PLACEHOLDER_TITLE, ignoreCase = true)) "" else t
+        }
 
     val description: String
         get() = attributes["description"]?.trim().orEmpty()
@@ -108,6 +114,7 @@ internal class MdxHeader(
     companion object {
         private const val UTF16LE_BOM = 0xFFFE
         private const val MAX_HEADER_BYTES = 1 shl 20
+        private const val PLACEHOLDER_TITLE = "Title (No HTML code allowed)"
 
         /**
          * Parses the header at the start of [head], which must contain at least the

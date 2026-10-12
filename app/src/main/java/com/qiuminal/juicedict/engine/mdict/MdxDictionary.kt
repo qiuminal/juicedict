@@ -63,7 +63,9 @@ internal class MdxDictionary(
         require(head.kind == MdxKind.ARTICLE) {
             "${mdxFile.name} is a resource pack, not a dictionary"
         }
-        require(!head.isEncrypted) { "encrypted MDict files are not supported" }
+        require(head.encrypted and MdxKeyBlockCrypto.NEEDS_PASSWORD == 0) {
+            "password-protected MDict files are not supported"
+        }
         require(head.keySectionOffset < reader.length) { "truncated MDict file ${mdxFile.name}" }
         header = head
 
@@ -74,6 +76,7 @@ internal class MdxDictionary(
             declaredEntries = head.entryCount,
             version = head.version,
             stripKey = head.stripKey,
+            encrypted = head.encrypted,
         )
         words = MdxWordIndex.load(reader, keyIndex, head.stripKey)
         records = MdxRecordStore(reader, keyIndex.recordSectionOffset(head.keySectionOffset))

@@ -78,7 +78,9 @@ object MdxVerify {
             val header = MdxHeader.parse(r.read(0, minOf(r.length, 1L shl 20).toInt()))
                 ?: error("could not parse header")
             check(header.kind == mdxKind) { "kind ${header.kind} != expected $mdxKind" }
-            check(!header.isEncrypted) { "file is encrypted" }
+            check(header.encrypted and MdxKeyBlockCrypto.NEEDS_PASSWORD == 0) {
+                "file is password-protected"
+            }
             println("    header: root=${header.kind} enc=${header.encoding} ver=${header.version}")
 
             val unit = if (mdxKind == MdxKind.RESOURCE || header.isUtf16) 2 else 1
@@ -92,6 +94,7 @@ object MdxVerify {
                 declaredEntries = declared,
                 version = header.version,
                 stripKey = header.stripKey,
+                encrypted = header.encrypted,
             )
             println(
                 "    key section: ${keyIndex.blockCount} blocks, " +

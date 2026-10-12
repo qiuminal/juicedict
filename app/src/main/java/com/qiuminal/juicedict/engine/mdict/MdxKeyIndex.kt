@@ -216,6 +216,7 @@ internal class MdxKeyIndex(
             declaredEntries: Long,
             version: Float,
             stripKey: Boolean,
+            encrypted: Int = 0,
         ): MdxKeyIndex {
             val head = reader.read(offset, PREAMBLE_WITH_CHECKSUM)
             val numBlocks = MdxBytes.u64be(head, 0)
@@ -232,7 +233,15 @@ internal class MdxKeyIndex(
                 "implausible MDict key index size $indexCompSize"
             }
 
-            val indexBlock = reader.read(offset + PREAMBLE_WITH_CHECKSUM, indexCompSize.toInt())
+            val rawIndexBlock = reader.read(offset + PREAMBLE_WITH_CHECKSUM, indexCompSize.toInt())
+            // Encrypted bit 2 scrambles only this key-block-info with a key derived from
+            // its own checksum; decrypt before inflating or the index is garbage and the
+            // dictionary answers no lookups despite importing.
+            val indexBlock = if (encrypted and MdxKeyBlockCrypto.KEY_INFO_ENCRYPTED != 0) {
+                MdxKeyBlockCrypto.decryptKeyInfo(rawIndexBlock)
+            } else {
+                rawIndexBlock
+            }
             val indexBytes = MdxBlockReader.read(indexBlock, indexDecompSize)
             require(indexBytes.size.toLong() == indexDecompSize) {
                 "MDict key index decompressed to ${indexBytes.size}, expected $indexDecompSize"

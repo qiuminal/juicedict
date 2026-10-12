@@ -44,8 +44,8 @@ android {
         applicationId = "com.qiuminal.juicedict"
         minSdk = 24
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.1.5"
+        versionCode = 9
+        versionName = "0.1.6"
     }
 
     signingConfigs {

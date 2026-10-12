@@ -132,6 +132,7 @@ object MdxSmoke {
                 declaredEntries = 0L,
                 version = head.version,
                 stripKey = head.stripKey,
+                encrypted = head.encrypted,
             )
             val raw = r.read(index.blockOffsetAt(0), index.blockCompSizeAt(0).toInt())
             val bytes = MdxBlockReader.read(raw, index.blockDecompSizeAt(0))

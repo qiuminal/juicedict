@@ -1,3 +1,22 @@
+## 0.1.6（2026-10-12）
+
+### 加密 MDict（Encrypted=2）支持
+
+- 现象：部分 `Encrypted="2"` 的 `.mdx` 导入后可显示词条数，但查任何词都无结果；词典名显示为占位符 `Title (No HTML code allowed)`。
+- 根因：这些词典头部为 `Encrypted="2"`，即**关键字索引区（key-block-info）经 `_fast_encrypt` 加密**（SWAPNIBBLE + 流式 XOR，密钥由该块自身 Adler-32 经 RIPEMD-128 派生，**不需要用户密码**；正文与各关键字块均为明文）。旧代码 `require(!head.isEncrypted)` 本应拦截，但词条数取自明文 preamble 仍能导入，而关键字索引解出乱码 → 查词零结果。
+- 修复：
+  - 新增纯 Kotlin `engine/mdict/Ripemd128.kt`（RIPEMD-128 实现，对照官方测试向量校验）与 `engine/mdict/MdxKeyBlockCrypto.kt`（`_mdx_decrypt` / `_fast_decrypt`，`key = ripemd128(block[4:8] + 95 36 00 00)`，保留前 8 字节块头）。无新增依赖。
+  - `MdxKeyIndex.parse` 增 `encrypted` 参数，`Encrypted & 2` 时先解密 key-block-info 再解压。
+  - 导入门槛由「拒绝一切加密」放宽为「仅拒绝需要用户注册码的位 1（Salsa20/8 关键字区前导加密）」：`require(head.encrypted and 0x01 == 0)`。位 1 仍不支持。
+- 标题占位符修复：`MdxHeader.title` 把 MdxBuilder 默认占位符 `Title (No HTML code allowed)` 视为空标题，使 `readMdxInfo` 的 `probe.title.ifBlank { dir.name }` 回退到目录名（即词典文件名）。该标题每次扫描重算、不持久化，升级安装即生效，无需重新导入。
+
+### 验证
+
+- 新增单元测试 `app/src/test/java/com/qiuminal/juicedict/engine/mdict/Ripemd128Test.kt`：RIPEMD-128 官方向量、跨块向量、`fastDecrypt` 往返。
+- JVM 端到端（真实加密 `.mdx`，4,317,172B，UTF-16，29 关键字块）：`verifyMdict` 解出 64671 词条、87 条抽样记录全部解析；`smokeMdict` 查词渲染链路通过。
+- `testDebugUnitTest` 全部通过，`assembleDebug` 通过。真机（ADB serial `52ce1128`）升级安装 debug 包后由用户确认该词典查询正常。
+- 版本号更新为 `versionCode = 9`、`versionName = "0.1.6"`。
+
 ## 0.1.5（2026-10-06）
 
 ### MDict 支持
